@@ -2411,7 +2411,7 @@ section[id^="panel-"]:not([hidden]) {
 
   /* Make sure complex grid rows stack neatly on mobile */
   .row.fin, .row.fin.exp, .row.fixed, .row.meal, .row.task {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 1fr) !important;
     position: relative;
     padding-right: 48px; /* Leave room for absolute X button */
   }
