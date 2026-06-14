@@ -10,3 +10,14 @@ node_modules/
 .claude.json
 .DS_Store
 Thumbs.db
+
+# Development files (kept local)
+.firebaserc
+firebase.json
+firestore.rules
+package.json
+package-lock.json
+tests/
+config.example.js
+README.md
+LICENSE
