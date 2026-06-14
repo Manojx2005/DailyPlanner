@@ -4,7 +4,7 @@
    Cache name: bump the version string to force a cache refresh.
    ============================================================ */
 
-const CACHE_NAME = "dayplanner-v4";
+const CACHE_NAME = "dayplanner-v5";
 
 const APP_SHELL = [
   "./",

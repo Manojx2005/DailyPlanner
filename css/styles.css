@@ -96,6 +96,7 @@
 html,
 body {
   margin: 0;
+  overflow-x: hidden;
 }
 
 body {
@@ -643,6 +644,10 @@ select:focus {
 .row:hover {
   border-color: var(--blue);
   box-shadow: var(--shadow-sm);
+}
+
+.row input {
+  min-width: 0;
 }
 
 .row.fixed {
