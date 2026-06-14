@@ -2419,25 +2419,26 @@ section[id^="panel-"]:not([hidden]) {
     right: auto;
   }
 
-  /* Make sure complex grid rows stack neatly on mobile */
-  .row.fin, .row.fin.exp, .row.fixed, .row.meal, .row.task {
-    grid-template-columns: minmax(0, 1fr) !important;
-    position: relative;
-    padding-right: 56px; /* Leave room for absolute X button */
+  /* Make complex rows responsive by wrapping them into a 1fr 1fr grid */
+  .row.fin, .row.fin.exp, .row.fixed, .row.meal {
+    grid-template-columns: 1fr 1fr !important;
+    padding-right: 14px; /* Reset padding to default */
   }
   
-  .row.fin > div, .row.fin.exp > div, .row.fixed > div, .row.meal > div, .row.task > div {
+  /* The first input (Name/Source) takes full width */
+  .row.fin > div:first-child, 
+  .row.fin.exp > div:first-child, 
+  .row.fixed > div:first-child, 
+  .row.meal > div:first-child {
     grid-column: 1 / -1 !important;
-    min-width: 0;
   }
   
-  /* Pin the delete button to the top-right corner of the row */
+  /* Place X button on the bottom right of the grid */
   .row .x {
-    position: absolute;
-    top: 28px;
-    right: 12px;
-    grid-column: auto !important;
-    grid-row: auto !important;
-    align-self: auto !important;
+    grid-column: 2 / 3 !important;
+    position: static;
+    justify-self: end !important;
+    align-self: end !important;
+    margin-top: 8px;
   }
 }
