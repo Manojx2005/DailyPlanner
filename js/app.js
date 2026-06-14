@@ -915,6 +915,7 @@ $("customMealUrl").addEventListener("keydown",e=>{if(e.key==="Enter")addCustomMe
 /* ---------- auth UI ---------- */
 function updateUserUI(user) {
   const avatar = $("userAvatar");
+  const btn = $("signOutBtn");
   if (user) {
     if (user.photoURL) {
       // build via DOM (not innerHTML) and run the URL through safeUrl() so a hostile
@@ -927,11 +928,15 @@ function updateUserUI(user) {
       avatar.textContent = (user.displayName || user.email || "U").charAt(0).toUpperCase();
     }
     avatar.title = user.displayName || user.email || "User";
-    $("signOutBtn").textContent = t("menu.signOut");
+    btn.textContent = t("menu.signOut");
+    btn.setAttribute("data-i18n", "menu.signOut");
+    btn.classList.add("signout-btn");
   } else {
     avatar.textContent = "G";
     avatar.title = "Guest";
-    $("signOutBtn").textContent = t("menu.signIn");
+    btn.textContent = t("menu.signIn");
+    btn.setAttribute("data-i18n", "menu.signIn");
+    btn.classList.remove("signout-btn");
   }
 }
 

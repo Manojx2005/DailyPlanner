@@ -220,7 +220,7 @@ header {
   height: 40px;
   border-radius: 50%;
   background: var(--navy-soft);
-  color: #fff;
+  color: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
