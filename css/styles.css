@@ -1214,6 +1214,7 @@ footer {
   grid-template-columns: auto 1fr auto;
   gap: 9px 10px;
   align-items: center;
+  position: relative;
 }
 
 .row.shop .chk {
@@ -2427,6 +2428,7 @@ section[id^="panel-"]:not([hidden]) {
   
   .row.fin > div, .row.fin.exp > div, .row.fixed > div, .row.meal > div, .row.task > div {
     grid-column: 1 / -1 !important;
+    min-width: 0;
   }
   
   /* Pin the delete button to the top-right corner of the row */
