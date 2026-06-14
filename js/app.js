@@ -1169,17 +1169,53 @@ function renderLangMenu(){
     `<button class="dropdown-btn lang-opt${l.code===cur?" active":""}" type="button" data-lang="${l.code}" role="menuitemradio" aria-checked="${l.code===cur}">${esc(l.label)}</button>`
   ).join("");
 }
+const CURRENCIES = [
+  { code: "¥", label: "¥" },
+  { code: "$", label: "$" },
+  { code: "€", label: "€" },
+  { code: "£", label: "£" },
+  { code: "₹", label: "₹" },
+  { code: "Rp", label: "Rp" },
+  { code: "₫", label: "₫" }
+];
+
+function renderCurrencyMenu() {
+  const cur = state.currency || "¥";
+  $("currencyToggle").textContent = cur;
+  $("currencyDropdown").innerHTML = CURRENCIES.map(c =>
+    `<button class="dropdown-btn lang-opt${c.code===cur?" active":""}" type="button" data-currency="${c.code}" role="menuitemradio" aria-checked="${c.code===cur}">${esc(c.label)}</button>`
+  ).join("");
+}
+
 function initCurrencySelect() {
-  const sel = $("currencySel");
-  if (!sel) return;
-  sel.value = state.currency || "¥";
-  sel.onchange = e => {
-    state.currency = e.target.value;
+  const toggle = $("currencyToggle");
+  if (!toggle) return;
+  renderCurrencyMenu();
+  toggle.onclick = e => {
+    e.stopPropagation();
+    const open = $("currencyDropdown").classList.toggle("show");
+    toggle.setAttribute("aria-expanded", String(open));
+  };
+  // pick a currency
+  $("currencyDropdown").addEventListener("click", e => {
+    const btn = e.target.closest("[data-currency]");
+    if (!btn) return;
+    state.currency = btn.dataset.currency;
     setCurrency(state.currency);
     save();
+    renderCurrencyMenu();
+    $("currencyDropdown").classList.remove("show");
+    toggle.setAttribute("aria-expanded", "false");
     applyLanguage();
     reRenderAll();
-  };
+  });
+  // click-outside closes
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#currencyMenu")) {
+      $("currencyDropdown").classList.remove("show");
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
 }
 
 function initLangSelect(){

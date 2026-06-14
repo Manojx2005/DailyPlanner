@@ -28,15 +28,10 @@
           <button class="iconbtn" id="langToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Language" style="font-size:18px">🌐</button>
           <div class="dropdown-content lang-dropdown" id="langDropdown"></div>
         </div>
-        <select id="currencySel" aria-label="Currency" class="currency-sel" style="background:transparent; border:none; color:inherit; font-size:16px; cursor:pointer; outline:none;">
-          <option value="¥">¥</option>
-          <option value="$">$</option>
-          <option value="€">€</option>
-          <option value="£">£</option>
-          <option value="₹">₹</option>
-          <option value="Rp">Rp</option>
-          <option value="₫">₫</option>
-        </select>
+        <div class="lang-menu" id="currencyMenu">
+          <button class="iconbtn" id="currencyToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Currency" style="font-size:18px">¥</button>
+          <div class="dropdown-content lang-dropdown" id="currencyDropdown"></div>
+        </div>
       </div>
       <p data-i18n="app.tagline">Enter what's fixed, list what you need to do — get a real schedule and your actual free time.</p>
     </div>
