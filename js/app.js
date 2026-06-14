@@ -915,14 +915,18 @@ $("customMealUrl").addEventListener("keydown",e=>{if(e.key==="Enter")addCustomMe
 /* ---------- auth UI ---------- */
 function updateUserUI(user) {
   const avatar = $("userAvatar");
-  if (user && user.photoURL) {
-    // build via DOM (not innerHTML) and run the URL through safeUrl() so a hostile
-    // photoURL can't break out of the src attribute or use a javascript:/data: scheme
-    const img = document.createElement("img");
-    img.src = safeUrl(user.photoURL);
-    img.alt = "User";
-    avatar.replaceChildren(img);
-    avatar.title = user.displayName || user.email;
+  if (user) {
+    if (user.photoURL) {
+      // build via DOM (not innerHTML) and run the URL through safeUrl() so a hostile
+      // photoURL can't break out of the src attribute or use a javascript:/data: scheme
+      const img = document.createElement("img");
+      img.src = safeUrl(user.photoURL);
+      img.alt = "User";
+      avatar.replaceChildren(img);
+    } else {
+      avatar.textContent = (user.displayName || user.email || "U").charAt(0).toUpperCase();
+    }
+    avatar.title = user.displayName || user.email || "User";
     $("signOutBtn").textContent = t("menu.signOut");
   } else {
     avatar.textContent = "G";
