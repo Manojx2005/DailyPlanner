@@ -260,7 +260,10 @@ function renderShopRows(){
     <div class="row shop${it.got?" got":""}">
       <input type="checkbox" class="chk" data-scope="shop" data-i="${i}" data-f="got"${it.got?" checked":""} aria-label="Mark as in basket">
       <input class="nm-in" data-scope="shop" data-i="${i}" data-f="name" value="${esc(it.name)}" placeholder="e.g. Basmati rice" aria-label="Item name">
-      <button class="iconbtn" data-delshop="${i}" title="Remove" aria-label="Remove item">×</button>
+      <div style="display:flex; gap:4px; align-items:center;">
+        ${it.got ? `<button class="iconbtn" style="color:var(--green); font-size:14px;" data-stockshop="${i}" title="Stock Pantry" aria-label="Stock Pantry">📥</button>` : ''}
+        <button class="iconbtn" data-delshop="${i}" title="Remove" aria-label="Remove item">×</button>
+      </div>
       <div class="sub3">
         <div><label class="f">Qty</label><input type="number" min="1" step="1" data-scope="shop" data-i="${i}" data-f="qty" value="${it.qty}"></div>
       <div><label class="f">Unit ${getCurrency()}</label><input type="number" min="0" step="any" data-scope="shop" data-i="${i}" data-f="price" value="${displayAmount(it.price)}"></div>
@@ -521,10 +524,18 @@ async function onTimetablePhoto(e){
 
 /* ---------- meal planner state + persistence ---------- */
 const DEFAULT_KITCHEN={
-  pantry:["Short-grain rice","Soy sauce","Mirin","Dashi","Sugar","Salt","Cooking oil","Flour",
-          "Garam masala","Turmeric","Cumin","Garlic","Ginger","Doubanjiang","Miso paste"],
+  pantry:[
+    {name:"Short-grain rice", qty:1000, unit:"g"}, {name:"Soy sauce", qty:500, unit:"ml"},
+    {name:"Mirin", qty:500, unit:"ml"}, {name:"Dashi", qty:100, unit:"g"},
+    {name:"Sugar", qty:500, unit:"g"}, {name:"Salt", qty:500, unit:"g"},
+    {name:"Cooking oil", qty:1000, unit:"ml"}, {name:"Flour", qty:1000, unit:"g"},
+    {name:"Yeast", qty:50, unit:"g"}, {name:"Garam masala", qty:50, unit:"g"},
+    {name:"Turmeric", qty:50, unit:"g"}, {name:"Garlic", qty:100, unit:"g"},
+    {name:"Ginger", qty:100, unit:"g"}, {name:"Miso paste", qty:500, unit:"g"}
+  ],
   plan:[],
-  customRecipes:[],   // recipes manually added by the user
+  customRecipes:[],
+  aiRecipes:[]
 };
 let kitchen=structuredClone(DEFAULT_KITCHEN);
 const MKEY="mealplan:v1";
@@ -544,18 +555,28 @@ async function loadKitchen(){
   }else{
     const v=localStore.get(MKEY);if(v){try{kitchen=JSON.parse(v);}catch(e){}}
   }
+  
+  // Migration: String arrays to objects
+  if (kitchen.pantry) {
+    kitchen.pantry = kitchen.pantry.map(p => typeof p === "string" ? { name: p, qty: 1, unit: "unit" } : p);
+  }
+  if (kitchen.plan) {
+    kitchen.plan = kitchen.plan.map(p => typeof p === "string" ? { recipeId: p, made: false } : p);
+  }
 }
 
 const allRecipes=()=>RECIPES.concat(kitchen.customRecipes||kitchen.aiRecipes||[]);
 const recipeById=id=>allRecipes().find(r=>r.id===id);
 function renderPantry(){
-  $("pantryChips").innerHTML=kitchen.pantry.map((p,i)=>
-    `<span class="chip">${esc(p)}<button data-delpantry="${i}" title="Remove" aria-label="Remove ${esc(p)}">×</button></span>`).join("")
+  $("pantryChips").innerHTML=kitchen.pantry.map((p,i)=>{
+    const text = typeof p === "string" ? p : `${p.name} (${p.qty} ${p.unit})`;
+    return `<span class="chip">${esc(text)}<button data-delpantry="${i}" title="Remove" aria-label="Remove ${esc(text)}">×</button></span>`;
+  }).join("")
     ||`<span class="hint" style="margin:0">${t("meals.pantryEmpty")}</span>`;
 }
 function renderRecipeList(){
   $("recipeList").innerHTML=allRecipes().map(r=>{
-    const picked=kitchen.plan.includes(r.id);
+    const picked=kitchen.plan.some(p => p.recipeId === r.id);
     return `<div class="recipe ${picked?"picked":""}">
       <div class="rinfo"><div class="rn">${r.ai?"✨ ":""}${esc(r.name)} <span class="kcal-badge">${fmtKcal(recipeNutrition(r,1).kcal)}</span></div>
         <div class="rm">${r.cuisine?esc(r.cuisine)+" · ":""}${t("meals.serves")} ${r.serves} · ${r.ingredients.length} ingredients · ${fmtMacros(recipeNutrition(r,1))}</div>
@@ -597,18 +618,21 @@ function addCustomMeal(){
 function renderMealPlan(){
   const el=$("planList");
   if(!kitchen.plan.length){el.innerHTML=`<div class="empty" style="padding:16px">${t("meals.noMeals")}</div>`;return;}
-  const rows=kitchen.plan.map((id,i)=>{const r=recipeById(id);if(!r)return"";
-    return `<div class="recipe picked"><div class="rinfo"><div class="rn">${esc(r.name)} <span class="kcal-badge">${fmtKcal(recipeNutrition(r,1).kcal)}</span></div>
+  const rows=kitchen.plan.map((p,i)=>{const r=recipeById(p.recipeId);if(!r)return"";
+    return `<div class="recipe picked ${p.made?'made':''}"><div class="rinfo"><div class="rn">${esc(r.name)} <span class="kcal-badge">${fmtKcal(recipeNutrition(r,1).kcal)}</span></div>
       <div class="rm">${esc(r.cuisine)} · ${t("meals.serves")} ${r.serves}</div>
-      <button class="rm" style="background:none; border:none; padding:0; color:var(--blue); cursor:pointer; font-weight:600; font-family:var(--sans); margin-top:4px;" data-viewrecipe="${esc(r.id)}">${t("meals.viewSteps")}</button>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+        <button class="rm" style="background:none; border:none; padding:0; color:var(--blue); cursor:pointer; font-weight:600; font-family:var(--sans);" data-viewrecipe="${esc(r.id)}">${t("meals.viewSteps")}</button>
+        ${!p.made ? `<button class="btn ghost" style="padding:4px 8px; font-size:11px;" data-mademeal="${i}">Made it!</button>` : `<span style="font-size:11px; color:var(--green);">✓ Made</span>`}
+      </div>
       </div>
       <button class="iconbtn" data-delmeal="${i}" title="Remove" aria-label="Remove ${esc(r.name)}">×</button></div>`;
   }).join("");
   // one-serving-per-meal nutrition total for the picked plan
-  const tot=planNutrition(kitchen.plan.map(recipeById).filter(Boolean));
+  const tot=planNutrition(kitchen.plan.filter(p=>!p.made).map(p=>recipeById(p.recipeId)).filter(Boolean));
   el.innerHTML=rows+`<div class="nutri-total"><span><b>${fmtKcal(tot.kcal)}</b> total</span><span>${fmtMacros(tot)}</span></div>`;
 }
-function currentNeeds(){return neededIngredients(kitchen.plan.map(recipeById).filter(Boolean),kitchen.pantry);}
+function currentNeeds(){return neededIngredients(kitchen.plan.filter(p=>!p.made).map(p=>recipeById(p.recipeId)).filter(Boolean),kitchen.pantry);}
 function renderNeeds(){
   const needs=currentNeeds(),el=$("needList");
   $("roMeals").textContent=needs.length;
@@ -620,8 +644,8 @@ function renderNeeds(){
     const skips = (state.fixed||[]).filter(f=>!f.days||!f.days.length||f.days.includes(dow)).some(f=>f.skipMeals);
     if (!skips) targetPortions += (state.meals || []).length;
   }
-  let plannedPortions = kitchen.plan.reduce((sum, id) => {
-    const r = recipeById(id);
+  let plannedPortions = kitchen.plan.filter(p=>!p.made).reduce((sum, p) => {
+    const r = recipeById(p.recipeId);
     return sum + (r ? (r.serves || 1) : 0);
   }, 0);
 
@@ -633,7 +657,15 @@ function renderNeeds(){
     return `<div class="needrow"><span>${esc(n.name)} <span style="color:var(--text-muted)">${amt}</span></span><b>${yen(n.price)}</b></div>`;
   }).join("");
 }
-function renderKitchen(){renderPantry();renderRecipeList();renderMealPlan();renderNeeds();}
+function updateAiPrompt() {
+  const el = $("aiPromptText");
+  if (!el) return;
+  const pantryLines = kitchen.pantry.map(p => `  - ${p.qty} ${p.unit} ${p.name}`).join("\n");
+  const base = `I need a JSON array of 5 recipes for my meal planner app.\nOutput ONLY valid JSON.\nEach recipe must match this schema exactly:\n{\n  "name": "Recipe Name",\n  "cuisine": "Cuisine Type",\n  "serves": 2,\n  "instructions": [ "Step 1", "Step 2" ],\n  "ingredients": [\n    { "name": "Ingredient 1", "qty": 1, "unit": "cup" }\n  ]\n}\nDo not use markdown blocks, just raw JSON.`;
+  const pantryContext = kitchen.pantry.length ? `\n\nI currently have these ingredients in my pantry:\n${pantryLines}\n\nPlease prioritize recipes that heavily utilize these ingredients so nothing goes to waste!` : "";
+  el.value = base + pantryContext;
+}
+function renderKitchen(){renderPantry();renderRecipeList();renderMealPlan();renderNeeds();updateAiPrompt();}
 function generateShoppingList(){
   const needs=currentNeeds();if(!needs.length)return;
   const have=new Set(shop.items.map(it=>String(it.name).toLowerCase()));
@@ -689,6 +721,22 @@ document.addEventListener("click",e=>{
   const tgt=e.target;
   const del=tgt.dataset.del;
   if(del){state[del].splice(+tgt.dataset.i,1);({fixed:renderFixed,meals:renderMeals,tasks:renderTasks})[del]();save();return;}
+  if(tgt.dataset.stockshop!==undefined){
+    const it=shop.items[+tgt.dataset.stockshop];
+    const m = it.name.match(/^(.*?)(?:\s*\((.*?)\))?(?:\s*×\d+)?$/);
+    const baseName = m ? m[1].trim() : it.name;
+    const existing = kitchen.pantry.find(p=>p.name.toLowerCase()===baseName.toLowerCase());
+    if (existing) {
+      existing.qty += Number(it.qty) || 1;
+    } else {
+      kitchen.pantry.push({name: baseName, qty: Number(it.qty) || 1, unit: "unit"});
+    }
+    shop.items.splice(+tgt.dataset.stockshop,1);
+    renderShopRows();updateShop();saveShop();
+    renderKitchen();saveKitchen();
+    if (typeof updateAiPrompt === "function") updateAiPrompt();
+    return;
+  }
   if(tgt.dataset.delshop!==undefined){shop.items.splice(+tgt.dataset.delshop,1);renderShopRows();updateShop();saveShop();return;}
   if(tgt.dataset.delfin!==undefined){const a=tgt.dataset.delfin;finance[a].splice(+tgt.dataset.i,1);renderFinInputs();updateFinance();saveFin();return;}
   if(tgt.dataset.deldraft!==undefined){draft.items.splice(+tgt.dataset.deldraft,1);if(!draft.items.length)draft.items.push({name:"",qty:1,price:0,cat:"food"});renderDraft();return;}
@@ -708,8 +756,8 @@ document.addEventListener("click",e=>{
     return;
   }
   if(tgt.dataset.recipe){
-    const id=tgt.dataset.recipe,k=kitchen.plan.indexOf(id);
-    if(k>=0)kitchen.plan.splice(k,1);else kitchen.plan.push(id);
+    const id=tgt.dataset.recipe,k=kitchen.plan.findIndex(p=>p.recipeId===id);
+    if(k>=0)kitchen.plan.splice(k,1);else kitchen.plan.push({recipeId: id, made: false});
     renderKitchen();saveKitchen();return;
   }
   if(tgt.dataset.viewrecipe) {
@@ -737,6 +785,26 @@ document.addEventListener("click",e=>{
   }
   if(tgt.id==="recipeClose"){
     $("recipeModal").hidden=true;
+    return;
+  }
+  if(tgt.dataset.mademeal!==undefined){
+    const i = +tgt.dataset.mademeal;
+    const p = kitchen.plan[i];
+    if(!p.made) {
+      p.made = true;
+      const r = recipeById(p.recipeId);
+      if(r) {
+        for(const ing of r.ingredients) {
+          const existing = kitchen.pantry.find(pi => pi.name.toLowerCase() === ing.name.toLowerCase());
+          if(existing && existing.qty > 0) {
+            existing.qty -= (ing.qty || 1);
+            if(existing.qty < 0) existing.qty = 0;
+          }
+        }
+      }
+      renderKitchen();saveKitchen();
+      if (typeof updateAiPrompt === "function") updateAiPrompt();
+    }
     return;
   }
   if(tgt.dataset.delmeal!==undefined){kitchen.plan.splice(+tgt.dataset.delmeal,1);renderKitchen();saveKitchen();return;}
@@ -893,8 +961,20 @@ $("timetableBtn").onclick=()=>$("timetableCam").click();
 
 function addPantryItem(){
   const v=$("pantryInput").value.trim();if(!v)return;
-  if(!kitchen.pantry.some(p=>p.toLowerCase()===v.toLowerCase()))kitchen.pantry.push(v);
-  $("pantryInput").value="";renderPantry();renderNeeds();saveKitchen();
+  const q=Number($("pantryQty").value)||1;
+  const u=$("pantryUnit").value.trim();
+  const existing = kitchen.pantry.find(p=>p.name.toLowerCase()===v.toLowerCase());
+  if (existing) {
+    existing.qty += q;
+    if (u) existing.unit = u;
+  } else {
+    kitchen.pantry.push({name: v, qty: q, unit: u});
+  }
+  $("pantryInput").value="";
+  if($("pantryQty")) $("pantryQty").value="";
+  if($("pantryUnit")) $("pantryUnit").value="";
+  renderPantry();renderNeeds();saveKitchen();
+  if (typeof updateAiPrompt === "function") updateAiPrompt();
 }
 $("addPantry").onclick=addPantryItem;
 $("pantryInput").addEventListener("keydown",e=>{if(e.key==="Enter")addPantryItem();});
@@ -906,7 +986,7 @@ $("suggestWeek").onclick=()=>{
     const skips = (state.fixed||[]).filter(f=>!f.days||!f.days.length||f.days.includes(dow)).some(f=>f.skipMeals);
     if (!skips) targetPortions += (state.meals || []).length;
   }
-  kitchen.plan=suggestWeek(allRecipes(), targetPortions);  // include custom/imported recipes, not just built-ins
+  kitchen.plan=suggestWeek(allRecipes(), targetPortions).map(id=>({recipeId:id, made:false}));  // include custom/imported recipes, not just built-ins
   renderKitchen();
   saveKitchen();
 };

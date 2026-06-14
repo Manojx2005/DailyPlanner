@@ -274,8 +274,10 @@
           <h2 data-i18n="meals.pantry.title">Pantry — what you already have</h2>
           <div class="hint" data-i18n="meals.pantry.hint">Staples here are skipped when generating the shopping list. Add or remove to match your kitchen.</div>
           <div class="chips" id="pantryChips"></div>
-          <div class="addchip">
-            <input id="pantryInput" data-i18n-ph="meals.pantry.ph" placeholder="e.g. Eggs" data-i18n-aria="aria.pantryInput" aria-label="Add pantry staple">
+          <div class="addchip" style="display: flex; gap: 8px;">
+            <input id="pantryInput" style="flex: 2; min-width: 80px;" data-i18n-ph="meals.pantry.ph" placeholder="e.g. Eggs" aria-label="Add pantry staple">
+            <input id="pantryQty" type="number" step="any" min="0" placeholder="Qty" style="flex: 1; min-width: 50px;">
+            <input id="pantryUnit" placeholder="Unit" style="flex: 1; min-width: 50px;">
             <button id="addPantry" type="button" data-i18n="meals.pantry.btn">Add</button>
           </div>
         </div>
