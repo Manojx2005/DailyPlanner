@@ -2422,7 +2422,7 @@ section[id^="panel-"]:not([hidden]) {
   .row.fin, .row.fin.exp, .row.fixed, .row.meal, .row.task {
     grid-template-columns: minmax(0, 1fr) !important;
     position: relative;
-    padding-right: 48px; /* Leave room for absolute X button */
+    padding-right: 56px; /* Leave room for absolute X button */
   }
   
   .row.fin > div, .row.fin.exp > div, .row.fixed > div, .row.meal > div, .row.task > div {
@@ -2432,7 +2432,7 @@ section[id^="panel-"]:not([hidden]) {
   /* Pin the delete button to the top-right corner of the row */
   .row .x {
     position: absolute;
-    top: 14px;
+    top: 28px;
     right: 12px;
     grid-column: auto !important;
     grid-row: auto !important;
