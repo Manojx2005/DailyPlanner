@@ -11,7 +11,11 @@
    t(key, lang?)       translate key; falls back en → key
    applyLanguage(lang?, root?)  walk [data-i18n], [data-i18n-ph], [data-i18n-aria]
    availableLanguages()         [{code, label}, …]
+   setCurrency(cur)             set global currency for placeholder replacement
 ============================================================================= */
+
+let currentCurrency = "¥";
+export function setCurrency(cur) { currentCurrency = cur; }
 
 export const MESSAGES = {
 
@@ -117,7 +121,7 @@ export const MESSAGES = {
     "shop.list.hint":      "Quantity × unit price, per item. Tick the box as each goes in your basket to see what's still left to pay.",
     "shop.breakdown.title":"Cost breakdown",
     "label.qty":           "Qty",
-    "label.unitYen":       "Unit ¥",
+    "label.unitYen":       "Unit {cur}",
     "label.itemType":      "Type",
     "shop.cat.food":       "Food 8%",
     "shop.cat.other":      "Other 10%",
@@ -184,7 +188,7 @@ export const MESSAGES = {
     /* ── Finance tab ── */
     "fin.income.title":    "Income & balance",
     "fin.income.hint":     "What comes in this month, and what's already in your account.",
-    "fin.initialBal":      "Initial account balance ¥",
+    "fin.initialBal":      "Initial account balance {cur}",
     "fin.cards.title":     "Credit cards",
     "fin.cards.hint":      "Just the name and limit — each card's spend is filled in automatically from purchases you mark as paid by it.",
     "fin.expenses.title":  "Expenses",
@@ -202,9 +206,9 @@ export const MESSAGES = {
     "fin.whereItGoes":     "Where it goes",
     "fin.export.label":    "Plain-text summary (copy to paste anywhere)",
     "label.source":        "Source",
-    "label.perMonth":      "¥ / month",
+    "label.perMonth":      "{cur} / month",
     "label.cardName":      "Card name",
-    "label.limitYen":      "Limit ¥",
+    "label.limitYen":      "Limit {cur}",
     "label.paidWith":      "Paid with",
     "label.expType":       "Type",
     "fin.cat.fixed":       "Fixed",
@@ -223,7 +227,7 @@ export const MESSAGES = {
     "label.store":         "Store",
     "label.paidWith2":     "Paid with",
     "label.item":          "Item",
-    "label.eachYen":       "¥ each",
+    "label.eachYen":       "{cur} each",
     "receipt.total":       "Receipt total 税込",
     "btn.addLine":         "+ Add line",
     "btn.addToExpenses":   "Add to expenses",
@@ -371,7 +375,7 @@ export const MESSAGES = {
     "shop.list.hint":      "1品ごとに個数×単価を入力します。カゴに入れたらチェックを入れると残額が確認できます。",
     "shop.breakdown.title":"費用内訳",
     "label.qty":           "個数",
-    "label.unitYen":       "単価（¥）",
+    "label.unitYen":       "単価（{cur}）",
     "label.itemType":      "種類",
     "shop.cat.food":       "食品 8%",
     "shop.cat.other":      "その他 10%",
@@ -438,7 +442,7 @@ export const MESSAGES = {
     /* ── Finance tab ── */
     "fin.income.title":    "収入と残高",
     "fin.income.hint":     "今月の収入と口座の残高を入力します。",
-    "fin.initialBal":      "口座残高（¥）",
+    "fin.initialBal":      "口座残高（{cur}）",
     "fin.cards.title":     "クレジットカード",
     "fin.cards.hint":      "カード名と利用限度額だけ入力 — そのカードで支払った購入額が自動で集計されます。",
     "fin.expenses.title":  "支出",
@@ -456,9 +460,9 @@ export const MESSAGES = {
     "fin.whereItGoes":     "支出の内訳",
     "fin.export.label":    "テキスト形式のサマリー（コピーして貼り付け）",
     "label.source":        "収入源",
-    "label.perMonth":      "¥ / 月",
+    "label.perMonth":      "{cur} / 月",
     "label.cardName":      "カード名",
-    "label.limitYen":      "限度額（¥）",
+    "label.limitYen":      "限度額（{cur}）",
     "label.paidWith":      "支払い方法",
     "label.expType":       "種類",
     "fin.cat.fixed":       "固定費",
@@ -477,7 +481,7 @@ export const MESSAGES = {
     "label.store":         "店名",
     "label.paidWith2":     "支払い方法",
     "label.item":          "商品",
-    "label.eachYen":       "¥（1個）",
+    "label.eachYen":       "{cur}（1個）",
     "receipt.total":       "レシート合計（税込）",
     "btn.addLine":         "+ 行を追加",
     "btn.addToExpenses":   "支出に追加",
@@ -625,7 +629,7 @@ export const MESSAGES = {
     "shop.list.hint":      "Số lượng × đơn giá cho mỗi mặt hàng. Tích vào ô khi đã bỏ vào giỏ để xem còn cần trả bao nhiêu.",
     "shop.breakdown.title":"Chi tiết chi phí",
     "label.qty":           "Số lượng",
-    "label.unitYen":       "Đơn giá ¥",
+    "label.unitYen":       "Đơn giá {cur}",
     "label.itemType":      "Loại",
     "shop.cat.food":       "Thực phẩm 8%",
     "shop.cat.other":      "Khác 10%",
@@ -692,7 +696,7 @@ export const MESSAGES = {
     /* ── Finance tab ── */
     "fin.income.title":    "Thu nhập & số dư",
     "fin.income.hint":     "Thu nhập tháng này và số tiền đã có trong tài khoản.",
-    "fin.initialBal":      "Số dư tài khoản ban đầu ¥",
+    "fin.initialBal":      "Số dư tài khoản ban đầu {cur}",
     "fin.cards.title":     "Thẻ tín dụng",
     "fin.cards.hint":      "Chỉ cần tên và hạn mức — chi tiêu của mỗi thẻ sẽ được tự động tổng hợp từ các giao dịch bạn đánh dấu trả bằng thẻ đó.",
     "fin.expenses.title":  "Chi tiêu",
@@ -710,9 +714,9 @@ export const MESSAGES = {
     "fin.whereItGoes":     "Chi tiêu đi đâu",
     "fin.export.label":    "Tóm tắt dạng văn bản (sao chép để dán vào nơi khác)",
     "label.source":        "Nguồn thu",
-    "label.perMonth":      "¥ / tháng",
+    "label.perMonth":      "{cur} / tháng",
     "label.cardName":      "Tên thẻ",
-    "label.limitYen":      "Hạn mức ¥",
+    "label.limitYen":      "Hạn mức {cur}",
     "label.paidWith":      "Thanh toán bằng",
     "label.expType":       "Loại",
     "fin.cat.fixed":       "Cố định",
@@ -731,7 +735,7 @@ export const MESSAGES = {
     "label.store":         "Cửa hàng",
     "label.paidWith2":     "Thanh toán bằng",
     "label.item":          "Mặt hàng",
-    "label.eachYen":       "¥ mỗi cái",
+    "label.eachYen":       "{cur} mỗi cái",
     "receipt.total":       "Tổng hóa đơn (đã thuế)",
     "btn.addLine":         "+ Thêm dòng",
     "btn.addToExpenses":   "Thêm vào chi tiêu",
@@ -812,9 +816,10 @@ export function setLang(lang) {
  */
 export function t(key, lang) {
   const l = lang || getLang();
-  return (MESSAGES[l] && MESSAGES[l][key])
+  let str = (MESSAGES[l] && MESSAGES[l][key])
       || (MESSAGES["en"] && MESSAGES["en"][key])
       || key;
+  return str.replace(/\{cur\}/g, currentCurrency);
 }
 
 /**

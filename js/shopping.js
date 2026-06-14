@@ -3,9 +3,12 @@
    Pure module: no DOM access. Japan's reduced rate is 8% on food/drink,
    10% on everything else (alcohol, household goods, etc.). */
 
+import { getLang, t } from "./i18n.js";
+import { getCurrency } from "./app.js";
+
 const TAX={food:0.08,other:0.10};
 
-export const yen=n=>"¥"+Math.round(n).toLocaleString("ja-JP");
+export const yen = n => getCurrency() + Math.round(n).toLocaleString(getLang() === "ja" ? "ja-JP" : "en-US");
 
 export function calcShopping(s){
   let preFood=0,preOther=0,inclFood=0,inclOther=0,left=0,count=0;
@@ -29,7 +32,7 @@ export function shopText(shop,c){
   for(const it of shop.items){
     const qty=Number(it.qty)||0,price=Number(it.price)||0,line=qty*price;
     if(!it.name&&!line)continue;
-    lines.push(`${it.got?"[x]":"[ ]"} ${it.name||"(item)"}  ${qty}×¥${price.toLocaleString("ja-JP")} = ¥${Math.round(line).toLocaleString("ja-JP")}  ${it.cat==="food"?"food 8%":"other 10%"}`);
+    lines.push(`${it.got?"[x]":"[ ]"} ${it.name||"(item)"}  ${qty}×${getCurrency()}${price.toLocaleString("ja-JP")} = ${getCurrency()}${Math.round(line).toLocaleString("ja-JP")}  ${it.cat==="food"?"food 8%":"other 10%"}`);
   }
   lines.push("",`Subtotal 税抜: ${yen(c.subtotal)}`,`Tax 8% (food): ${yen(c.tax8)}`,`Tax 10% (other): ${yen(c.tax10)}`,`TOTAL 税込: ${yen(c.total)}`);
   if(c.left>0&&Math.round(c.left)!==Math.round(c.total))lines.push(`Still to buy: ${yen(c.left)}`);

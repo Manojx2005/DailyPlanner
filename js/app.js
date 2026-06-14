@@ -4,7 +4,7 @@
    Pure logic lives in ./schedule.js and ./shopping.js.
    Auth via ./auth.js, cloud sync via ./sync.js. */
 
-import { getLang, setLang, t, applyLanguage, availableLanguages } from "./i18n.js";
+import { getLang, setLang, t, applyLanguage, availableLanguages, setCurrency } from "./i18n.js";
 import { fmtDur, toHHMM, buildSchedule, asText, toMin } from "./schedule.js";
 import { yen, calcShopping, shopText } from "./shopping.js";
 import { computeFinance, financeVerdict, financeText } from "./finance.js";
@@ -19,6 +19,7 @@ import { initSync, saveToCloud, loadFromCloud, listenToCloud, stopAllListeners, 
 
 /* ---------- state + persistence ---------- */
 const DEFAULT={
+  currency:"¥",
   wake:"07:00",sleep:"23:30",
   fixed:[{label:"Class",start:"09:00",end:"10:30",days:[1,3,5]},{label:"Part-time job",start:"17:00",end:"21:00",days:[2,4,6]}],
   meals:[{label:"Breakfast",time:"07:30",dur:25},{label:"Lunch",time:"12:30",dur:40},{label:"Dinner",time:"21:15",dur:40}],
@@ -33,6 +34,7 @@ const DEFAULT={
   ],
 };
 let state=structuredClone(DEFAULT);
+export function getCurrency() { return state.currency || "¥"; }
 const KEY="dayplanner:v1";
 
 let currentUser = null; // Firebase user object
@@ -65,7 +67,7 @@ async function load(){
     }
   }else{
     const v=localStore.get(KEY);
-    if(v){try{state=JSON.parse(v);}catch(e){}}
+    if(v){try{state={...structuredClone(DEFAULT), ...JSON.parse(v)};}catch(e){}}
   }
 }
 
@@ -261,7 +263,7 @@ function renderShopRows(){
       <button class="iconbtn" data-delshop="${i}" title="Remove" aria-label="Remove item">×</button>
       <div class="sub3">
         <div><label class="f">Qty</label><input type="number" min="1" step="1" data-scope="shop" data-i="${i}" data-f="qty" value="${it.qty}"></div>
-        <div><label class="f">Unit ¥</label><input type="number" min="0" step="10" data-scope="shop" data-i="${i}" data-f="price" value="${it.price}"></div>
+      <div><label class="f">Unit ${getCurrency()}</label><input type="number" min="0" step="10" data-scope="shop" data-i="${i}" data-f="price" value="${it.price}"></div>
         <div><label class="f">Type</label>${cSel(null, i, "cat", [{v:"food",l:t("shop.cat.food")},{v:"other",l:t("shop.cat.other")}], it.cat, "shop")}</div>
       </div>
     </div>`).join("");
@@ -329,7 +331,7 @@ function renderIncome(){
   $("incomeRows").innerHTML=finance.income.map((it,i)=>`
     <div class="row fin">
       <div><label class="f">Source</label><input data-scope="fin" data-arr="income" data-i="${i}" data-f="label" value="${esc(it.label)}" placeholder="e.g. Scholarship"></div>
-      <div><label class="f">¥ / month</label><input class="amt-in" type="number" min="0" step="1000" data-scope="fin" data-arr="income" data-i="${i}" data-f="amount" value="${it.amount}" style="width:120px"></div>
+      <div><label class="f">${getCurrency()} / month</label><input class="amt-in" type="number" min="0" step="1000" data-scope="fin" data-arr="income" data-i="${i}" data-f="amount" value="${it.amount}" style="width:120px"></div>
       <div class="x"><button class="iconbtn" data-delfin="income" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
     </div>`).join("");
 }
@@ -337,7 +339,7 @@ function renderCards(){
   $("cardRows").innerHTML=finance.cards.map((c,i)=>`
     <div class="row fin">
       <div><label class="f">Card name</label><input data-scope="fin" data-arr="cards" data-i="${i}" data-f="name" value="${esc(c.name)}" placeholder="e.g. SMBC"></div>
-      <div><label class="f">Limit ¥</label><input class="amt-in" type="number" min="0" step="10000" data-scope="fin" data-arr="cards" data-i="${i}" data-f="limit" value="${c.limit}" style="width:120px"></div>
+      <div><label class="f">Limit ${getCurrency()}</label><input class="amt-in" type="number" min="0" step="10000" data-scope="fin" data-arr="cards" data-i="${i}" data-f="limit" value="${c.limit}" style="width:120px"></div>
       <div class="x"><button class="iconbtn" data-delfin="cards" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
     </div>`).join("");
 }
@@ -345,7 +347,7 @@ function renderExpenses(){
   $("expRows").innerHTML=finance.expenses.map((e,i)=>`
     <div class="row fin exp">
       <div><label class="f">What</label><input data-scope="fin" data-arr="expenses" data-i="${i}" data-f="label" value="${esc(e.label)}" placeholder="e.g. Gym"></div>
-      <div><label class="f">¥</label><input class="amt-in" type="number" min="0" step="500" data-scope="fin" data-arr="expenses" data-i="${i}" data-f="amount" value="${e.amount}" style="width:92px"></div>
+      <div><label class="f">${getCurrency()}</label><input class="amt-in" type="number" min="0" step="500" data-scope="fin" data-arr="expenses" data-i="${i}" data-f="amount" value="${e.amount}" style="width:92px"></div>
       <div><label class="f">Type</label>${cSel(null, i, "cat", [{v:"fixed",l:t("fin.cat.fixed")},{v:"variable",l:t("fin.cat.variable")}], e.cat, "fin", "expenses")}</div>
       <div><label class="f">Paid with</label>${cSel(null, i, "paidBy", payerOptionsArr(), e.paidBy, "fin", "expenses")}</div>
       <div class="x"><button class="iconbtn" data-delfin="expenses" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
@@ -870,6 +872,7 @@ $("importFile").onchange=async (e)=>{
     await save(); await saveShop(); await saveFin(); await saveKitchen();
     
     // refresh UI
+    setCurrency(getCurrency());
     renderInputs(); renderGoals(); renderPlan();
     renderShopRows(); renderTaxToggle(); updateShop();
     renderFinInputs(); updateFinance();
@@ -1166,6 +1169,19 @@ function renderLangMenu(){
     `<button class="dropdown-btn lang-opt${l.code===cur?" active":""}" type="button" data-lang="${l.code}" role="menuitemradio" aria-checked="${l.code===cur}">${esc(l.label)}</button>`
   ).join("");
 }
+function initCurrencySelect() {
+  const sel = $("currencySel");
+  if (!sel) return;
+  sel.value = state.currency || "¥";
+  sel.onchange = e => {
+    state.currency = e.target.value;
+    setCurrency(state.currency);
+    save();
+    applyLanguage();
+    reRenderAll();
+  };
+}
+
 function initLangSelect(){
   const toggle = $("langToggle");
   if(!toggle) return;
@@ -1203,6 +1219,7 @@ async function bootApp() {
   await load(); await loadShop(); await loadFin(); await loadKitchen();
   if (!Array.isArray(state.goals)) state.goals = [];    // migrate state saved before goals existed
   if (!Array.isArray(kitchen.aiRecipes)) kitchen.aiRecipes = [];   // migrate pre-AI meal plans
+  setCurrency(getCurrency());
   renderInputs(); renderGoals(); renderPlan(); save();
   renderShopRows(); renderTaxToggle(); updateShop(); saveShop();
   renderFinInputs(); updateFinance(); saveFin();
@@ -1237,6 +1254,7 @@ function installLabelObserver() {
   }
 
   // Apply language to static chrome before any data renders
+  initCurrencySelect();
   initLangSelect();
   applyLanguage();
 

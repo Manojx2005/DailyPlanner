@@ -28,6 +28,15 @@
           <button class="iconbtn" id="langToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Language" style="font-size:18px">🌐</button>
           <div class="dropdown-content lang-dropdown" id="langDropdown"></div>
         </div>
+        <select id="currencySel" aria-label="Currency" class="currency-sel" style="background:transparent; border:none; color:inherit; font-size:16px; cursor:pointer; outline:none;">
+          <option value="¥">¥</option>
+          <option value="$">$</option>
+          <option value="€">€</option>
+          <option value="£">£</option>
+          <option value="₹">₹</option>
+          <option value="Rp">Rp</option>
+          <option value="₫">₫</option>
+        </select>
       </div>
       <p data-i18n="app.tagline">Enter what's fixed, list what you need to do — get a real schedule and your actual free time.</p>
     </div>
@@ -177,7 +186,7 @@
       <!-- INPUT -->
       <div>
         <div class="card">
-          <h2><span class="n">¥</span> <span data-i18n="shop.priceMode.title">How you enter prices</span></h2>
+          <h2><span class="n" data-i18n="sym.currency">¥</span> <span data-i18n="shop.priceMode.title">How you enter prices</span></h2>
           <div class="hint" data-i18n="shop.priceMode.hint">Shelf tags in Japan usually show the tax-included price (税込). Pick which you're typing — alcohol and non-food count as "Other" (10%).</div>
           <div class="taxtoggle" id="taxToggle">
             <button data-mode="excl" type="button" aria-pressed="true" data-i18n="shop.taxExcl">Tax-excluded 税抜</button>
@@ -345,7 +354,7 @@ Do not use markdown blocks, just raw JSON.</textarea>
       <!-- INPUT -->
       <div>
         <div class="card">
-          <h2><span class="n">¥</span> <span data-i18n="fin.income.title">Income &amp; balance</span></h2>
+          <h2><span class="n" data-i18n="sym.currency">¥</span> <span data-i18n="fin.income.title">Income &amp; balance</span></h2>
           <div class="hint" data-i18n="fin.income.hint">What comes in this month, and what's already in your account.</div>
           <div><label class="f" for="finInitial" data-i18n="fin.initialBal">Initial account balance ¥</label>
             <input type="number" id="finInitial" min="0" step="1000" value="0"></div>
