@@ -16,6 +16,7 @@
 
 let currentCurrency = "¥";
 export function setCurrency(cur) { currentCurrency = cur; }
+export function getCurrency() { return currentCurrency || "¥"; }
 
 export const MESSAGES = {
 
@@ -838,7 +839,8 @@ export function applyLanguage(lang, root) {
 
   r.querySelectorAll("[data-i18n]").forEach(el => {
     const key = el.dataset.i18n;
-    el.textContent = t(key, l);
+    // special dynamic key: show the live currency symbol, not a dictionary lookup
+    el.textContent = key === "sym.currency" ? getCurrency() : t(key, l);
   });
 
   r.querySelectorAll("[data-i18n-ph]").forEach(el => {

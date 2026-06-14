@@ -1344,6 +1344,18 @@ footer {
   font-family: var(--mono);
 }
 
+/* money inputs auto-size to their value so large currencies (e.g. ₫, Rp)
+   don't overflow their box; field-sizing is Chromium — min/max are the
+   cross-browser fallback so the field stays usable everywhere. */
+[data-f="amount"],
+[data-f="limit"],
+[data-f="price"],
+#finInitial {
+  field-sizing: content;
+  min-width: 84px;
+  max-width: 100%;
+}
+
 .hero {
   /* hardcoded #0A2540 — use the token so dark-mode override still takes effect */
   background: var(--fixed);

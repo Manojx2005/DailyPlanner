@@ -3,12 +3,32 @@
    Pure module: no DOM access. Japan's reduced rate is 8% on food/drink,
    10% on everything else (alcohol, household goods, etc.). */
 
-import { getLang, t } from "./i18n.js";
-import { getCurrency } from "./app.js";
+import { getLang, t, getCurrency } from "./i18n.js?v=1.6";
 
 const TAX={food:0.08,other:0.10};
 
-export const yen = n => getCurrency() + Math.round(n).toLocaleString(getLang() === "ja" ? "ja-JP" : "en-US");
+/* ---- currency conversion ----
+   All money is stored in JPY (the app's base currency). These convert to the
+   currently-selected display currency. Rates are approximate units-per-1-JPY;
+   for "¥" the rate is 1 so toDisplay/fromDisplay are identity (no behaviour
+   change for yen users). Static rates keep us CSP-safe (no live FX fetch). */
+const RATES={ "¥":1, "$":0.0064, "€":0.0059, "£":0.0051, "₹":0.55, "Rp":104, "₫":166 };
+const DEC  ={ "¥":0, "$":2,      "€":2,      "£":2,      "₹":0,    "Rp":0,  "₫":0   };
+const rate = ()=>RATES[getCurrency()] ?? 1;
+const dec  = ()=>DEC[getCurrency()] ?? 0;
+
+/* JPY → selected-currency numeric value */
+export const toDisplay = jpy => (Number(jpy)||0) * rate();
+/* selected-currency value → JPY (integer, the stored base) */
+export const fromDisplay = val => Math.round((Number(val)||0) / rate());
+/* JPY → a clean number for an input field (rounded to the currency's decimals) */
+export const displayAmount = jpy => { const v=toDisplay(jpy); const d=dec(); return d? Number(v.toFixed(d)) : Math.round(v); };
+
+export const yen = n => {
+  const d=dec();
+  const loc=getLang()==="ja"?"ja-JP":"en-US";
+  return getCurrency() + toDisplay(n).toLocaleString(loc,{minimumFractionDigits:d,maximumFractionDigits:d});
+};
 
 export function calcShopping(s){
   let preFood=0,preOther=0,inclFood=0,inclOther=0,left=0,count=0;

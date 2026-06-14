@@ -4,18 +4,18 @@
    Pure logic lives in ./schedule.js and ./shopping.js.
    Auth via ./auth.js, cloud sync via ./sync.js. */
 
-import { getLang, setLang, t, applyLanguage, availableLanguages, setCurrency } from "./i18n.js";
-import { fmtDur, toHHMM, buildSchedule, asText, toMin } from "./schedule.js";
-import { yen, calcShopping, shopText } from "./shopping.js";
-import { computeFinance, financeVerdict, financeText } from "./finance.js";
-import { buildWeek, DOW } from "./week.js";
-import { RECIPES, neededIngredients, toShopItem, suggestWeek, coerceRecipe } from "./meals.js";
-import { recipeNutrition, planNutrition, fmtKcal, fmtMacros } from "./nutrition.js";
-import { buildICS, timelineToEvents, downloadICS } from "./calendar.js";
-import { staggerCards } from "./fx.js";
+import { getLang, setLang, t, applyLanguage, availableLanguages, setCurrency } from "./i18n.js?v=1.6";
+import { fmtDur, toHHMM, buildSchedule, asText, toMin } from "./schedule.js?v=1.6";
+import { yen, calcShopping, shopText, displayAmount, fromDisplay } from "./shopping.js?v=1.6";
+import { computeFinance, financeVerdict, financeText } from "./finance.js?v=1.6";
+import { buildWeek, DOW } from "./week.js?v=1.6";
+import { RECIPES, neededIngredients, toShopItem, suggestWeek, coerceRecipe } from "./meals.js?v=1.6";
+import { recipeNutrition, planNutrition, fmtKcal, fmtMacros } from "./nutrition.js?v=1.6";
+import { buildICS, timelineToEvents, downloadICS } from "./calendar.js?v=1.6";
+import { staggerCards } from "./fx.js?v=1.6";
 import { initAuth, isConfigured as isFirebaseConfigured, signInWithGoogle, signInWithEmail,
-         signUpWithEmail, resetPassword, signOut as fbSignOut, onAuthStateChanged, getApp } from "./auth.js";
-import { initSync, saveToCloud, loadFromCloud, listenToCloud, stopAllListeners, migrateLocalStorage } from "./sync.js";
+         signUpWithEmail, resetPassword, signOut as fbSignOut, onAuthStateChanged, getApp } from "./auth.js?v=1.6";
+import { initSync, saveToCloud, loadFromCloud, listenToCloud, stopAllListeners, migrateLocalStorage } from "./sync.js?v=1.6";
 
 /* ---------- state + persistence ---------- */
 const DEFAULT={
@@ -263,7 +263,7 @@ function renderShopRows(){
       <button class="iconbtn" data-delshop="${i}" title="Remove" aria-label="Remove item">×</button>
       <div class="sub3">
         <div><label class="f">Qty</label><input type="number" min="1" step="1" data-scope="shop" data-i="${i}" data-f="qty" value="${it.qty}"></div>
-      <div><label class="f">Unit ${getCurrency()}</label><input type="number" min="0" step="10" data-scope="shop" data-i="${i}" data-f="price" value="${it.price}"></div>
+      <div><label class="f">Unit ${getCurrency()}</label><input type="number" min="0" step="any" data-scope="shop" data-i="${i}" data-f="price" value="${displayAmount(it.price)}"></div>
         <div><label class="f">Type</label>${cSel(null, i, "cat", [{v:"food",l:t("shop.cat.food")},{v:"other",l:t("shop.cat.other")}], it.cat, "shop")}</div>
       </div>
     </div>`).join("");
@@ -284,7 +284,7 @@ function updateShop(){
 function onShopField(e){
   const t=e.target,i=+t.dataset.i,f=t.dataset.f;
   if(f==="got"){shop.items[i].got=t.checked;const row=t.closest(".row");if(row)row.classList.toggle("got",t.checked);}
-  else shop.items[i][f]=t.value;
+  else shop.items[i][f]=f==="price"?fromDisplay(t.value):t.value;
   updateShop();saveShop();
 }
 
@@ -331,7 +331,7 @@ function renderIncome(){
   $("incomeRows").innerHTML=finance.income.map((it,i)=>`
     <div class="row fin">
       <div><label class="f">Source</label><input data-scope="fin" data-arr="income" data-i="${i}" data-f="label" value="${esc(it.label)}" placeholder="e.g. Scholarship"></div>
-      <div><label class="f">${getCurrency()} / month</label><input class="amt-in" type="number" min="0" step="1000" data-scope="fin" data-arr="income" data-i="${i}" data-f="amount" value="${it.amount}" style="width:120px"></div>
+      <div><label class="f">${getCurrency()} / month</label><input class="amt-in" type="number" min="0" step="any" data-scope="fin" data-arr="income" data-i="${i}" data-f="amount" value="${displayAmount(it.amount)}"></div>
       <div class="x"><button class="iconbtn" data-delfin="income" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
     </div>`).join("");
 }
@@ -339,7 +339,7 @@ function renderCards(){
   $("cardRows").innerHTML=finance.cards.map((c,i)=>`
     <div class="row fin">
       <div><label class="f">Card name</label><input data-scope="fin" data-arr="cards" data-i="${i}" data-f="name" value="${esc(c.name)}" placeholder="e.g. SMBC"></div>
-      <div><label class="f">Limit ${getCurrency()}</label><input class="amt-in" type="number" min="0" step="10000" data-scope="fin" data-arr="cards" data-i="${i}" data-f="limit" value="${c.limit}" style="width:120px"></div>
+      <div><label class="f">Limit ${getCurrency()}</label><input class="amt-in" type="number" min="0" step="any" data-scope="fin" data-arr="cards" data-i="${i}" data-f="limit" value="${displayAmount(c.limit)}"></div>
       <div class="x"><button class="iconbtn" data-delfin="cards" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
     </div>`).join("");
 }
@@ -347,7 +347,7 @@ function renderExpenses(){
   $("expRows").innerHTML=finance.expenses.map((e,i)=>`
     <div class="row fin exp">
       <div><label class="f">What</label><input data-scope="fin" data-arr="expenses" data-i="${i}" data-f="label" value="${esc(e.label)}" placeholder="e.g. Gym"></div>
-      <div><label class="f">${getCurrency()}</label><input class="amt-in" type="number" min="0" step="500" data-scope="fin" data-arr="expenses" data-i="${i}" data-f="amount" value="${e.amount}" style="width:92px"></div>
+      <div><label class="f">${getCurrency()}</label><input class="amt-in" type="number" min="0" step="any" data-scope="fin" data-arr="expenses" data-i="${i}" data-f="amount" value="${displayAmount(e.amount)}"></div>
       <div><label class="f">Type</label>${cSel(null, i, "cat", [{v:"fixed",l:t("fin.cat.fixed")},{v:"variable",l:t("fin.cat.variable")}], e.cat, "fin", "expenses")}</div>
       <div><label class="f">Paid with</label>${cSel(null, i, "paidBy", payerOptionsArr(), e.paidBy, "fin", "expenses")}</div>
       <div class="x"><button class="iconbtn" data-delfin="expenses" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
@@ -363,7 +363,7 @@ function renderReceipts(){
         <button class="iconbtn" data-delfin="receipts" data-i="${i}" title="Remove" aria-label="Remove">×</button></div>
     </div>`).join("");
 }
-function renderFinInputs(){$("finInitial").value=finance.initialBalance;renderIncome();renderCards();renderExpenses();renderReceipts();}
+function renderFinInputs(){$("finInitial").value=displayAmount(finance.initialBalance);renderIncome();renderCards();renderExpenses();renderReceipts();}
 
 function updateFinance(){
   const s=computeFinance(finance), vd=financeVerdict(s);
@@ -390,7 +390,7 @@ function updateFinance(){
 }
 function onFinField(e){
   const t=e.target,arr=t.dataset.arr,i=+t.dataset.i,f=t.dataset.f;
-  finance[arr][i][f]=t.value;
+  finance[arr][i][f]=(f==="amount"||f==="limit")?fromDisplay(t.value):t.value;
   if(arr==="cards"&&f==="name")renderExpenses();   // payer dropdowns reference card names
   updateFinance();saveFin();
 }
@@ -415,7 +415,7 @@ function renderDraft(){
     <div class="draftrow">
       <input data-scope="draft" data-i="${i}" data-f="name" value="${esc(it.name)}" placeholder="鶏もも肉 / item">
       <input class="amt-in" type="number" min="1" step="1" data-scope="draft" data-i="${i}" data-f="qty" value="${it.qty}">
-      <input class="amt-in" type="number" min="0" step="10" data-scope="draft" data-i="${i}" data-f="price" value="${it.price}">
+      <input class="amt-in" type="number" min="0" step="any" data-scope="draft" data-i="${i}" data-f="price" value="${displayAmount(it.price)}">
       ${cSel(null, i, "cat", [{v:"food",l:t("shop.cat.food")},{v:"other",l:t("shop.cat.other")}], it.cat, "draft")}
       <button class="iconbtn" data-deldraft="${i}" title="Remove" aria-label="Remove">×</button>
     </div>`).join("");
@@ -424,7 +424,7 @@ function renderDraft(){
 function draftTotal(){return draft.items.reduce((a,it)=>a+(Number(it.qty)||0)*(Number(it.price)||0),0);}
 function onDraftField(e){
   const t=e.target,i=+t.dataset.i,f=t.dataset.f;
-  draft.items[i][f]=t.value;
+  draft.items[i][f]=f==="price"?fromDisplay(t.value):t.value;
   $("rmTotal").textContent=yen(draftTotal());
 }
 function confirmReceipt(){
@@ -675,7 +675,7 @@ function routeField(e){
 document.addEventListener("input",e=>{
   const t=e.target;
   if(routeField(e))return;
-  if(t.id==="finInitial"){finance.initialBalance=t.value;updateFinance();saveFin();return;}
+  if(t.id==="finInitial"){finance.initialBalance=fromDisplay(t.value);updateFinance();saveFin();return;}
   if(t.id==="wake"||t.id==="sleep"){state[t.id]=t.value;save();return;}
   onField(e);
 });
@@ -873,6 +873,7 @@ $("importFile").onchange=async (e)=>{
     
     // refresh UI
     setCurrency(getCurrency());
+    if (typeof renderCurrencyMenu === "function") renderCurrencyMenu();
     renderInputs(); renderGoals(); renderPlan();
     renderShopRows(); renderTaxToggle(); updateShop();
     renderFinInputs(); updateFinance();
@@ -1256,6 +1257,7 @@ async function bootApp() {
   if (!Array.isArray(state.goals)) state.goals = [];    // migrate state saved before goals existed
   if (!Array.isArray(kitchen.aiRecipes)) kitchen.aiRecipes = [];   // migrate pre-AI meal plans
   setCurrency(getCurrency());
+  if (typeof renderCurrencyMenu === "function") renderCurrencyMenu();
   renderInputs(); renderGoals(); renderPlan(); save();
   renderShopRows(); renderTaxToggle(); updateShop(); saveShop();
   renderFinInputs(); updateFinance(); saveFin();

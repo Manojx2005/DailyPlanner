@@ -4,24 +4,24 @@
    Cache name: bump the version string to force a cache refresh.
    ============================================================ */
 
-const CACHE_NAME = "dayplanner-v5";
+const CACHE_NAME = "dayplanner-v7";
 
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./css/styles.css",
-  "./js/app.js",
-  "./js/auth.js",
-  "./js/calendar.js",
-  "./js/finance.js",
-  "./js/fx.js",
-  "./js/i18n.js",
-  "./js/meals.js",
-  "./js/nutrition.js",
-  "./js/schedule.js",
-  "./js/shopping.js",
-  "./js/sync.js",
-  "./js/week.js",
+  "./css/styles.css?v=1.6",
+  "./js/app.js?v=1.6",
+  "./js/auth.js?v=1.6",
+  "./js/calendar.js?v=1.6",
+  "./js/finance.js?v=1.6",
+  "./js/fx.js?v=1.6",
+  "./js/i18n.js?v=1.6",
+  "./js/meals.js?v=1.6",
+  "./js/nutrition.js?v=1.6",
+  "./js/schedule.js?v=1.6",
+  "./js/shopping.js?v=1.6",
+  "./js/sync.js?v=1.6",
+  "./js/week.js?v=1.6",
   "./config.local.js",
   "./firebase-config.js",
   "./manifest.json",
@@ -76,7 +76,9 @@ self.addEventListener("fetch", (event) => {
   // and the CSP are always picked up immediately; fall back to cache when offline.
   if (event.request.mode === "navigate" || event.request.destination === "document") {
     event.respondWith(
-      fetch(event.request)
+      // {cache:"no-store"} skips the browser HTTP cache so GitHub Pages' ~10-min
+      // file caching can't keep serving a stale index.html that points at old assets.
+      fetch(event.request, { cache: "no-store" })
         .then((fresh) => {
           if (fresh && fresh.ok) {
             const copy = fresh.clone();

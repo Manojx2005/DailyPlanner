@@ -4,7 +4,7 @@
    then distributes tasks across the next 7 days honouring each task's deadline.
    Classes/shifts recur via a `days` array of weekday indices (0=Sun … 6=Sat). */
 
-import { buildSchedule } from "./schedule.js";
+import { buildSchedule } from "./schedule.js?v=1.6";
 
 export const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MIN_CHUNK=25, SPLITTABLE=new Set(["study","project"]), PRIORITY_W={high:3,med:2,low:1};
