@@ -19,5 +19,4 @@ package.json
 package-lock.json
 tests/
 config.example.js
-README.md
 LICENSE
