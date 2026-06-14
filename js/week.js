@@ -16,8 +16,8 @@ export function buildWeek(state,todayDow){
   const days=[];
   for(let i=0;i<7;i++){
     const dow=(todayDow+i)%7;
-    const fixedToday=(state.fixed||[]).filter(f=>!f.days||!f.days.length||f.days.includes(dow));
-    const skipsMeals=fixedToday.some(f=>f.skipMeals);
+    const fixedToday=(state.fixed||[]).filter(f=>!f.date && (!f.days||!f.days.length||f.days.includes(dow)));
+    const skipsMeals=fixedToday.some(f=>f.skipMeal);
     const mealsToday=skipsMeals ? [] : (state.meals||[]).map(m => {
       const isCook = !m.days ? true : m.days.includes(dow);
       return isCook ? m : { ...m, dur: Math.min(Number(m.dur), 15), label: m.label + " (Reheat)" };

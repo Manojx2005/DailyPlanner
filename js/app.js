@@ -4,11 +4,11 @@
    Pure logic lives in ./schedule.js and ./shopping.js.
    Auth via ./auth.js, cloud sync via ./sync.js. */
 
-import { getLang, setLang, t, applyLanguage, availableLanguages, setCurrency } from "./i18n.js?v=1.6";
+import { getLang, setLang, t, applyLanguage, availableLanguages, setCurrency } from "./i18n.js?v=1.7";
 import { fmtDur, toHHMM, buildSchedule, asText, toMin } from "./schedule.js?v=1.6";
 import { yen, calcShopping, shopText, displayAmount, fromDisplay } from "./shopping.js?v=1.6";
 import { computeFinance, financeVerdict, financeText } from "./finance.js?v=1.6";
-import { buildWeek, DOW } from "./week.js?v=1.6";
+import { buildWeek, DOW } from "./week.js?v=1.7";
 import { RECIPES, neededIngredients, toShopItem, suggestWeek, coerceRecipe } from "./meals.js?v=1.6";
 import { recipeNutrition, planNutrition, fmtKcal, fmtMacros } from "./nutrition.js?v=1.6";
 import { buildICS, timelineToEvents, downloadICS } from "./calendar.js?v=1.6";
@@ -16,6 +16,19 @@ import { staggerCards } from "./fx.js?v=1.6";
 import { initAuth, isConfigured as isFirebaseConfigured, signInWithGoogle, signInWithEmail,
          signUpWithEmail, resetPassword, signOut as fbSignOut, onAuthStateChanged, getApp } from "./auth.js?v=1.6";
 import { initSync, saveToCloud, loadFromCloud, listenToCloud, stopAllListeners, migrateLocalStorage } from "./sync.js?v=1.6";
+
+/* ---------- formatting utils ---------- */
+function getLocalYMD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getLocalDow(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  return new Date(y, m - 1, d).getDay();
+}
 
 /* ---------- state + persistence ---------- */
 const DEFAULT={
@@ -32,6 +45,9 @@ const DEFAULT={
     {name:"JLPT N2",hoursPerWeek:5},
     {name:"Internship prep (DSA)",hoursPerWeek:3},
   ],
+  notes:{},
+  pinnedNotes:[],
+  habits:[],
 };
 let state=structuredClone(DEFAULT);
 export function getCurrency() { return state.currency || "¥"; }
@@ -50,7 +66,7 @@ const localStore={
 const statusText=ok=>ok?t("status.synced"):t("status.savedLocally");
 
 async function save(){
-  const data={wake:state.wake,sleep:state.sleep,fixed:state.fixed,meals:state.meals,tasks:state.tasks,goals:state.goals};
+  const data={wake:state.wake,sleep:state.sleep,fixed:state.fixed,meals:state.meals,tasks:state.tasks,goals:state.goals,notes:state.notes||{},pinnedNotes:state.pinnedNotes||[],habits:state.habits||[]};
   if(useCloud&&currentUser){
     const ok=await saveToCloud(currentUser.uid,"planner",data);
     $("savedNote").textContent=statusText(ok);
@@ -92,6 +108,35 @@ function cTime(k, i, f, val, scope) {
   </div>`;
 }
 
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "No date";
+  const [y, m, d] = dateStr.split('-');
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}, ${y}`;
+}
+
+function setPlanDate(dateStr) {
+  const hidden = $("planDate");
+  if (!hidden) return;
+  hidden.value = dateStr || "";
+  const head = $("planDateHead");
+  if (head) head.textContent = dateStr ? formatDateDisplay(dateStr) : "No date";
+  const trigger = $("planDateTrigger");
+  if (trigger) {
+    trigger.classList.toggle("empty", !dateStr);
+    trigger.setAttribute("aria-label", "date " + (dateStr || "none"));
+  }
+}
+
+function cDate(k, i, f, val) {
+  const display = val ? formatDateDisplay(val) : "No date";
+  const empty = val ? "" : " empty";
+  return `<div class="c-date${empty}" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-label="date ${val || "none"}" data-k="${k||''}" data-i="${i||''}" data-f="${f||''}">
+    <div class="cd-head">${display}</div>
+    <input type="hidden" data-k="${k||''}" data-i="${i||''}" data-f="${f||''}" value="${val || ""}">
+  </div>`;
+}
+
 const DOW_SHORT=["S","M","T","W","T","F","S"];
 function dowPicker(scope,i,days){
   return `<div class="dowpick">${DOW_SHORT.map((d,idx)=>
@@ -111,7 +156,7 @@ function renderFixed(){
         <div style="display:flex; align-items:center; gap:8px;">
           <div style="display:flex; flex-direction:column;">
             <label class="f" style="margin-bottom:2px">Specific Date</label>
-            <input type="date" data-k="fixed" data-i="${i}" data-f="date" value="${f.date||""}" style="padding:4px; font-size:12px; height:24px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); color-scheme:dark;">
+            ${cDate("fixed", i, "date", f.date||"")}
           </div>
           <div style="display:flex; flex-direction:column;">
             <label class="f" style="margin-bottom:2px">Replaces Meal</label>
@@ -138,14 +183,15 @@ function renderMeals(){
 }
 function renderTasks(){
   $("taskRows").innerHTML=state.tasks.map((tk,i)=>`
-    <div class="row task">
-      <div class="full"><label class="f">Task</label><input data-k="tasks" data-i="${i}" data-f="label" value="${esc(tk.label)}" placeholder="e.g. OS assignment"></div>
-      <div><label class="f">Minutes</label><input type="number" min="5" step="5" data-k="tasks" data-i="${i}" data-f="dur" value="${tk.dur}"></div>
+    <div class="row task" draggable="true" data-task-idx="${i}">
+      <div class="drag-handle" data-task-drag="${i}" aria-label="Drag to reorder" title="Drag to reorder">⠿</div>
+      <div class="full"><label class="f">Task</label><input draggable="false" data-k="tasks" data-i="${i}" data-f="label" value="${esc(tk.label)}" placeholder="e.g. OS assignment"></div>
+      <div><label class="f">Minutes</label><input type="number" min="5" step="5" draggable="false" data-k="tasks" data-i="${i}" data-f="dur" value="${tk.dur}"></div>
       <div><label class="f">Type</label>
         ${cSel("tasks", i, "category", [{v:"study",l:t("opt.study")},{v:"project",l:t("opt.project")},{v:"chore",l:t("opt.chore")}], tk.category)}</div>
       <div><label class="f">Priority</label>
         ${cSel("tasks", i, "priority", [{v:"high",l:t("opt.high")},{v:"med",l:t("opt.medium")},{v:"low",l:t("opt.low")}], tk.priority)}</div>
-      <div><label class="f">Due in (days)</label><input type="number" min="0" step="1" data-k="tasks" data-i="${i}" data-f="deadlineDays" value="${tk.deadlineDays}"></div>
+      <div><label class="f">Due in (days)</label><input type="number" min="0" step="1" draggable="false" data-k="tasks" data-i="${i}" data-f="deadlineDays" value="${tk.deadlineDays}"></div>
       <div class="full"><button class="iconbtn" data-del="tasks" data-i="${i}" title="Remove task" aria-label="Remove task" style="width:100%">× Remove task</button></div>
     </div>`).join("");
 }
@@ -178,7 +224,7 @@ function renderInputs(){
 }
 
 function getFilteredState(dateStr) {
-  const dow = new Date(dateStr).getDay();
+  const dow = getLocalDow(dateStr);
   const skips = new Set();
   const filteredFixed = (state.fixed||[]).filter(f => {
     if(f.date) {
@@ -195,7 +241,7 @@ function getFilteredState(dateStr) {
 
 /* ---------- output ---------- */
 function renderPlan(){
-  const dateStr = $("planDate")?.value || new Date().toISOString().split('T')[0];
+  const dateStr = $("planDate")?.value || getLocalYMD(new Date());
   const filteredState = getFilteredState(dateStr);
   const r=buildSchedule(filteredState);
   // day-window sanity: wind-down must be after wake (overnight windows aren't supported)
@@ -459,7 +505,7 @@ function confirmReceipt(){
     .map(it=>({name:it.name,qty:Number(it.qty)||1,price:Number(it.price)||0,cat:it.cat}));
   const total=items.reduce((a,it)=>a+it.qty*it.price,0);
   if(!items.length){closeReceipt();return;}
-  finance.receipts.push({date:new Date().toISOString().slice(0,10),store:$("rmStore").value.trim(),
+  finance.receipts.push({date:getLocalYMD(new Date()),store:$("rmStore").value.trim(),
     paidBy:draft.paidBy,total,items});
   closeReceipt();renderReceipts();updateFinance();saveFin();
 }
@@ -666,7 +712,7 @@ function renderNeeds(){
   for(let i=0;i<7;i++){
     const d = new Date(today);
     d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalYMD(d);
     const dow = d.getDay();
     const skips = new Set();
     (state.fixed||[]).forEach(f => {
@@ -710,16 +756,251 @@ function generateShoppingList(){
   setTab("shopping");
 }
 
+/* ---------- notes ---------- */
+let noteDate=getLocalYMD(new Date());
+function renderNotes(){
+  if(!state.notes)state.notes={};
+  if(!state.pinnedNotes)state.pinnedNotes=[];
+  const ed=$("noteEditor"); if(ed) ed.value=state.notes[noteDate]||"";
+  const disp=$("noteDateDisplay");
+  if(disp) disp.textContent=noteDate===getLocalYMD(new Date())?"Today":formatDateDisplay(noteDate);
+  renderPinnedNotes();
+}
+function renderPinnedNotes(){
+  const el=$("pinnedNotesList");if(!el)return;
+  const pinned=(state.pinnedNotes||[]).map(d=>({date:d,text:state.notes[d]||""})).filter(n=>n.text);
+  if(!pinned.length){el.innerHTML=`<div class="empty">No pinned notes yet.</div>`;return;}
+  el.innerHTML=pinned.map(n=>`
+    <div class="note-pin-item" data-pinneddate="${esc(n.date)}">
+      <div class="note-pin-body">${esc(n.text)}</div>
+      <span class="note-pin-date">${formatDateDisplay(n.date)}</span>
+      <button class="note-pin-del" data-delpinned="${esc(n.date)}" aria-label="Unpin">×</button>
+    </div>`).join("");
+}
+if($("noteEditor")){
+  $("noteEditor").addEventListener("input",e=>{
+    if(!state.notes)state.notes={};
+    state.notes[noteDate]=e.target.value;
+    const sn=$("savedNotepad");if(sn)sn.textContent="Saved";
+    clearTimeout(noteDate._saveTimer);
+    noteDate._saveTimer=setTimeout(()=>save(),800);
+  });
+}
+if($("pinNoteBtn")){
+  $("pinNoteBtn").onclick=()=>{
+    if(!state.pinnedNotes)state.pinnedNotes=[];
+    if(!state.notes[noteDate]){return;}
+    if(!state.pinnedNotes.includes(noteDate))state.pinnedNotes.unshift(noteDate);
+    renderPinnedNotes();save();
+  };
+}
+if($("notePrevDay")){
+  $("notePrevDay").onclick=()=>{
+    const d=new Date(noteDate+"T00:00:00");d.setDate(d.getDate()-1);
+    noteDate=getLocalYMD(d);renderNotes();
+  };
+}
+if($("noteNextDay")){
+  $("noteNextDay").onclick=()=>{
+    const d=new Date(noteDate+"T00:00:00");d.setDate(d.getDate()+1);
+    noteDate=getLocalYMD(d);renderNotes();
+  };
+}
+document.addEventListener("click",e=>{
+  if(e.target.dataset.delpinned!==undefined){
+    state.pinnedNotes=(state.pinnedNotes||[]).filter(d=>d!==e.target.dataset.delpinned);
+    renderPinnedNotes();save();return;
+  }
+  const pin=e.target.closest(".note-pin-item[data-pinneddate]");
+  if(pin&&!e.target.dataset.delpinned){noteDate=pin.dataset.pinneddate;renderNotes();setTab("notes");}
+});
+
+/* ---------- habits ---------- */
+function calcStreak(doneOn){
+  if(!doneOn||!doneOn.length)return 0;
+  const sorted=[...doneOn].sort().reverse();
+  let streak=0;const d=new Date();
+  for(let i=0;i<100;i++){
+    const s=getLocalYMD(d);
+    if(sorted.includes(s)){streak++;d.setDate(d.getDate()-1);}
+    else if(i===0){d.setDate(d.getDate()-1);}
+    else break;
+  }
+  return streak;
+}
+function renderHabits(){
+  if(!state.habits)state.habits=[];
+  const el=$("habitRows");if(!el)return;
+  const today=getLocalYMD(new Date());
+  el.innerHTML=state.habits.length?state.habits.map((h,i)=>{
+    const done=(h.doneOn||[]).includes(today);
+    const streak=calcStreak(h.doneOn||[]);
+    return `<div class="habit-row">
+      <div class="habit-check${done?" done":""}" data-habit-toggle="${i}" role="checkbox" aria-checked="${done}" tabindex="0" aria-label="${esc(h.name)}">${done?"✓":""}</div>
+      <div class="habit-name">${esc(h.name)}</div>
+      <div class="habit-streak">${streak>0?"🔥 "+streak+"d":"—"}</div>
+      <button class="iconbtn" data-del-habit="${i}" aria-label="Remove ${esc(h.name)}">×</button>
+    </div>`;
+  }).join(""):`<div class="empty">No habits yet. Add your first one below.</div>`;
+  renderHabitHeatmap();
+}
+function renderHabitHeatmap(){
+  const el=$("habitHeatmap");if(!el)return;
+  if(!(state.habits||[]).length){el.innerHTML="";return;}
+  const days=30;const today=new Date();
+  el.innerHTML=state.habits.map(h=>{
+    const dots=Array.from({length:days},(_,i)=>{
+      const d=new Date(today);d.setDate(d.getDate()-(days-1-i));
+      const s=getLocalYMD(d);
+      return `<div class="habit-dot${(h.doneOn||[]).includes(s)?" done":""}" title="${s}"></div>`;
+    }).join("");
+    return `<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">${esc(h.name)}</div><div class="habit-heatmap">${dots}</div></div>`;
+  }).join("");
+}
+document.addEventListener("click",e=>{
+  if(e.target.dataset.habitToggle!==undefined){
+    const i=+e.target.dataset.habitToggle;
+    if(!state.habits[i])return;
+    if(!state.habits[i].doneOn)state.habits[i].doneOn=[];
+    const today=getLocalYMD(new Date());
+    const idx=state.habits[i].doneOn.indexOf(today);
+    if(idx===-1)state.habits[i].doneOn.push(today);
+    else state.habits[i].doneOn.splice(idx,1);
+    if(navigator.vibrate)navigator.vibrate(8);
+    renderHabits();save();return;
+  }
+  if(e.target.dataset.delHabit!==undefined){
+    state.habits.splice(+e.target.dataset.delHabit,1);
+    renderHabits();save();return;
+  }
+});
+if($("addHabitBtn")){
+  $("addHabitBtn").onclick=()=>{
+    const inp=$("habitInput");if(!inp||!inp.value.trim())return;
+    if(!state.habits)state.habits=[];
+    state.habits.push({name:inp.value.trim(),doneOn:[]});
+    inp.value="";renderHabits();save();
+  };
+}
+
+/* ---------- pomodoro ---------- */
+const POMO_FOCUS=25*60, POMO_BREAK=5*60;
+let _pomo={phase:"focus",remaining:POMO_FOCUS,sessions:0,timer:null,total:POMO_FOCUS};
+function updatePomoDisplay(){
+  const disp=$("pomoDisplay");if(!disp)return;
+  const m=Math.floor(_pomo.remaining/60),s=_pomo.remaining%60;
+  disp.textContent=`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  disp.className="pomo-display"+(_pomo.timer?(_pomo.phase==="break"?" break":" running"):"");
+  const lbl=$("pomoLabel");if(lbl)lbl.textContent=_pomo.phase==="break"?"Break ☕":"Focus";
+  const cnt=$("pomoCount");if(cnt)cnt.textContent=`${_pomo.sessions} session${_pomo.sessions!==1?"s":""}`;
+  const bar=$("pomoBar");
+  if(bar){
+    const pct=(_pomo.total-_pomo.remaining)/_pomo.total*100;
+    bar.style.width=pct+"%";
+    bar.className="pomo-progress-bar"+(_pomo.phase==="break"?" break":"");
+  }
+  const startBtn=$("pomoStart");
+  if(startBtn)startBtn.textContent=_pomo.timer?"⏸ Pause":"▶ Start";
+  document.title=_pomo.timer?`${disp.textContent} — Day Planner`:"Day Planner";
+}
+function pomoTick(){
+  _pomo.remaining--;
+  if(_pomo.remaining<=0){
+    clearInterval(_pomo.timer);_pomo.timer=null;
+    if(_pomo.phase==="focus"){
+      _pomo.sessions++;
+      _pomo.phase="break";_pomo.remaining=POMO_BREAK;_pomo.total=POMO_BREAK;
+      if(Notification.permission==="granted")new Notification("Break time! ☕",{body:"Focus session complete. Take 5 minutes.",icon:"./icon.svg"});
+    }else{
+      _pomo.phase="focus";_pomo.remaining=POMO_FOCUS;_pomo.total=POMO_FOCUS;
+      if(Notification.permission==="granted")new Notification("Back to focus! 🎯",{body:"Break is over. Let's go!",icon:"./icon.svg"});
+    }
+  }
+  updatePomoDisplay();
+}
+if($("pomoStart")){
+  $("pomoStart").onclick=()=>{
+    if(_pomo.timer){clearInterval(_pomo.timer);_pomo.timer=null;}
+    else{_pomo.timer=setInterval(pomoTick,1000);}
+    updatePomoDisplay();
+  };
+}
+if($("pomoReset")){
+  $("pomoReset").onclick=()=>{
+    if(_pomo.timer){clearInterval(_pomo.timer);_pomo.timer=null;}
+    _pomo={phase:"focus",remaining:POMO_FOCUS,sessions:_pomo.sessions,timer:null,total:POMO_FOCUS};
+    updatePomoDisplay();
+    document.title="Day Planner";
+  };
+}
+
+/* ---------- notifications ---------- */
+function updateNotifBtn(){
+  const btn=$("notifBtn");if(!btn)return;
+  btn.classList.toggle("active",Notification.permission==="granted");
+  btn.title=Notification.permission==="granted"?"Reminders on":"Enable reminders";
+}
+function scheduleBlockNotifs(){
+  if(Notification.permission!=="granted")return;
+  const dateStr=$("planDate")?.value||getLocalYMD(new Date());
+  if(dateStr!==getLocalYMD(new Date()))return;
+  const filtered=getFilteredState(dateStr);
+  const now=new Date();
+  (filtered.fixed||[]).forEach(b=>{
+    const[h,m]=b.start.split(":").map(Number);
+    const blockTime=new Date();blockTime.setHours(h,m-5,0,0);
+    const delay=blockTime-now;
+    if(delay>0&&delay<8*3600*1000){
+      setTimeout(()=>{
+        if(Notification.permission==="granted")
+          new Notification("📅 "+b.label,{body:"Starting in 5 minutes ("+b.start+")",icon:"./icon.svg"});
+      },delay);
+    }
+  });
+}
+if($("notifBtn")){
+  $("notifBtn").onclick=async()=>{
+    if(!("Notification" in window)){alert("Notifications not supported in this browser.");return;}
+    if(Notification.permission==="granted"){updateNotifBtn();return;}
+    const result=await Notification.requestPermission();
+    updateNotifBtn();
+    if(result==="granted")scheduleBlockNotifs();
+  };
+}
+
+/* ---------- print ---------- */
+if($("printBtn")) $("printBtn").onclick=()=>window.print();
+
 /* ---------- tabs ---------- */
-const TABS=["schedule","week","shopping","meals","finance"];
+const TABS=["schedule","week","month","shopping","meals","finance","notes","habits"];
+function positionTabIndicator(tabEl){
+  const ind=$("tabIndicator");
+  if(!ind||!tabEl)return;
+  const barRect=$("tabBar").getBoundingClientRect();
+  const tabRect=tabEl.getBoundingClientRect();
+  ind.style.left=(tabRect.left-barRect.left)+"px";
+  ind.style.width=tabRect.width+"px";
+  ind.style.opacity="1";
+}
+
 function setTab(t){
+  if(navigator.vibrate)navigator.vibrate(6);
   document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t)));
   for(const name of TABS){
     const p=$("panel-"+name);if(p)p.hidden=name!==t;
     const ro=$("ro-"+name);if(ro)ro.hidden=name!==t;
   }
-  if(t==="week")renderWeek();   // recompute against latest classes/tasks on open
-  staggerCards($("panel-"+t)); // fluid entrance for the cards of the opened tab
+  if(t==="week")renderWeek();
+  if(t==="month")renderMonth();
+  if(t==="notes")renderNotes();
+  if(t==="habits"){renderHabits();updatePomoDisplay();}
+  const panel=$("panel-"+t);
+  if(panel){panel.classList.remove("panel-enter");void panel.offsetWidth;panel.classList.add("panel-enter");}
+  staggerCards(panel);
+  const tabEl=document.querySelector(`.tab[data-tab="${t}"]`);
+  positionTabIndicator(tabEl);
+  // re-measure after label slide animation (350ms)
+  setTimeout(()=>positionTabIndicator(document.querySelector(`.tab[data-tab="${t}"]`)),380);
 }
 
 /* ---------- events ---------- */
@@ -844,9 +1125,68 @@ document.addEventListener("click",e=>{
   if(tgt.dataset.delmeal!==undefined){kitchen.plan.splice(+tgt.dataset.delmeal,1);renderKitchen();saveKitchen();return;}
   if(tgt.dataset.delpantry!==undefined){kitchen.pantry.splice(+tgt.dataset.delpantry,1);renderPantry();renderNeeds();saveKitchen();return;}
   if(tgt.dataset.delgoal!==undefined){state.goals.splice(+tgt.dataset.delgoal,1);renderGoals();save();renderWeek();return;}
-  if(tgt.classList.contains("tab")){setTab(tgt.dataset.tab);return;}
+  const tabBtn=tgt.closest(".tab[data-tab]");if(tabBtn){setTab(tabBtn.dataset.tab);return;}
   if(tgt.dataset.mode){shop.taxMode=tgt.dataset.mode;renderTaxToggle();updateShop();saveShop();return;}
 });
+
+/* ---------- drag to reorder tasks ---------- */
+let _dragFromHandle=false,_dragTaskIdx=null,_dragOverIdx=null;
+document.addEventListener("mousedown",e=>{_dragFromHandle=!!e.target.closest(".drag-handle");});
+document.addEventListener("touchstart",e=>{_dragFromHandle=!!e.target.closest(".drag-handle");},{passive:true});
+document.addEventListener("dragstart",e=>{
+  if(!_dragFromHandle){e.preventDefault();return;}
+  const row=e.target.closest(".row.task[data-task-idx]");if(!row)return;
+  _dragTaskIdx=+row.dataset.taskIdx;
+  row.classList.add("dragging");
+  e.dataTransfer.effectAllowed="move";
+  e.dataTransfer.setData("text/plain",String(_dragTaskIdx));
+});
+document.addEventListener("dragend",()=>{
+  document.querySelectorAll(".row.task").forEach(r=>r.classList.remove("dragging","drag-over"));
+  _dragTaskIdx=null;_dragOverIdx=null;
+});
+document.addEventListener("dragover",e=>{
+  const row=e.target.closest(".row.task[data-task-idx]");
+  if(!row||_dragTaskIdx===null)return;
+  e.preventDefault();e.dataTransfer.dropEffect="move";
+  const idx=+row.dataset.taskIdx;
+  if(idx!==_dragOverIdx){
+    document.querySelectorAll(".row.task").forEach(r=>r.classList.remove("drag-over"));
+    _dragOverIdx=idx;row.classList.add("drag-over");
+  }
+});
+document.addEventListener("drop",e=>{
+  const row=e.target.closest(".row.task[data-task-idx]");
+  if(!row||_dragTaskIdx===null)return;
+  e.preventDefault();
+  const toIdx=+row.dataset.taskIdx;
+  if(toIdx!==_dragTaskIdx){
+    const tasks=[...state.tasks];
+    const[moved]=tasks.splice(_dragTaskIdx,1);
+    tasks.splice(toIdx,0,moved);
+    state.tasks=tasks;
+    renderTasks();save();
+  }
+  document.querySelectorAll(".row.task").forEach(r=>r.classList.remove("dragging","drag-over"));
+  _dragTaskIdx=null;_dragOverIdx=null;
+});
+
+/* ---------- swipe to switch tabs ---------- */
+let _swipeX=0,_swipeY=0,_swipeOk=false;
+document.addEventListener("touchstart",e=>{
+  _swipeX=e.touches[0].clientX;_swipeY=e.touches[0].clientY;
+  _swipeOk=!e.target.closest("input,textarea,select,.c-sel,.c-time,.c-date,.rows,.month-grid,.weekgrid,.time-wheels");
+},{passive:true});
+document.addEventListener("touchend",e=>{
+  if(!_swipeOk)return;
+  const dx=e.changedTouches[0].clientX-_swipeX;
+  const dy=Math.abs(e.changedTouches[0].clientY-_swipeY);
+  if(Math.abs(dx)<60||dy>Math.abs(dx)*0.8)return;
+  const cur=TABS.indexOf(document.querySelector(".tab[aria-selected='true']")?.dataset.tab);
+  if(cur===-1)return;
+  const next=dx<0?Math.min(cur+1,TABS.length-1):Math.max(cur-1,0);
+  if(next!==cur)setTab(TABS[next]);
+},{passive:true});
 
 /* ai json upload */
 function onAiJsonUpload(e){
@@ -893,9 +1233,9 @@ $("addFixed").onclick=()=>{state.fixed.push({label:"",start:"13:00",end:"14:00"}
 $("addMeal").onclick=()=>{state.meals.push({label:"Snack",time:"15:30",dur:15});renderMeals();save();};
 $("addTask").onclick=()=>{state.tasks.push({label:"",dur:30,category:"study",priority:"med",deadlineDays:3});renderTasks();save();};
 $("plan").onclick=renderPlan;
-if($("planDate")) $("planDate").onchange=renderPlan;
+if($("planDate")) $("planDate").addEventListener("input", renderPlan);
 $("exportCalBtn").onclick=()=>{
-  const dateStr = $("planDate")?.value || new Date().toISOString().split('T')[0];
+  const dateStr = $("planDate")?.value || getLocalYMD(new Date());
   const filteredState = getFilteredState(dateStr);
   const r=buildSchedule(filteredState);
   const events=timelineToEvents(r.timeline,new Date(dateStr));
@@ -908,7 +1248,7 @@ if($("exportWeekBtn")) $("exportWeekBtn").onclick=()=>{
   for(let i=0; i<7; i++) {
     const d = new Date(baseDate);
     d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalYMD(d);
     const filteredState = getFilteredState(dateStr);
     filteredState.tasks = []; // We do not export week tasks since they aren't assigned specific dates
     const r = buildSchedule(filteredState);
@@ -917,6 +1257,42 @@ if($("exportWeekBtn")) $("exportWeekBtn").onclick=()=>{
   }
   if(!allEvents.length){alert("Nothing to export.");return;}
   downloadICS("weekplan.ics",buildICS(allEvents));
+};
+if($("exportMonthBtn")) $("exportMonthBtn").onclick=()=>{
+  let allEvents = [];
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  const todayForPlan = new Date();
+  todayForPlan.setHours(0,0,0,0);
+  const weekPlan = buildWeek(state, todayForPlan.getDay());
+  const weekDates = [];
+  for(let i=0; i<7; i++){
+    const d = new Date(todayForPlan);
+    d.setDate(d.getDate() + i);
+    weekDates.push(getLocalYMD(d));
+  }
+  
+  for(let d=1; d<=daysInMonth; d++) {
+    const curDate = new Date(year, month, d);
+    const dateStr = getLocalYMD(curDate);
+    const filteredState = getFilteredState(dateStr);
+    filteredState.tasks = []; // Omit flexible tasks from normal schedule build
+    const r = buildSchedule(filteredState);
+    
+    // If this day is within our 7-day planned week, overlay the planned tasks!
+    const weekIdx = weekDates.indexOf(dateStr);
+    if (weekIdx !== -1) {
+      const dayPlan = weekPlan.days[weekIdx];
+      dayPlan.placed.forEach(t => r.timeline.push(t));
+    }
+    
+    const events = timelineToEvents(r.timeline, curDate);
+    allEvents = allEvents.concat(events);
+  }
+  if(!allEvents.length){alert("Nothing to export for this month.");return;}
+  downloadICS("monthplan.ics",buildICS(allEvents));
 };
 $("reset").onclick=async()=>{state=structuredClone(DEFAULT);renderInputs();await save();renderPlan();};
 $("addItem").onclick=()=>{shop.items.push({name:"",qty:1,price:0,cat:"food",got:false});renderShopRows();updateShop();saveShop();};
@@ -932,18 +1308,35 @@ $("rmConfirm").onclick=confirmReceipt;
 $("rmCancel").onclick=closeReceipt;
 
 /* ---------- theme toggle ---------- */
+const MOON_SVG=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+const SUN_SVG=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 function applyTheme(dark){
   if(dark) document.documentElement.setAttribute("data-theme","dark");
   else document.documentElement.removeAttribute("data-theme");
   localStorage.setItem("theme",dark?"dark":"light");
+  const btn=$("themeToggle"); if(btn) btn.innerHTML=dark?SUN_SVG:MOON_SVG;
 }
-$("themeToggle").onclick=()=>{
+$("themeToggle").onclick=(e)=>{
   const isDark=document.documentElement.getAttribute("data-theme")==="dark";
-  applyTheme(!isDark);
+  if(!document.startViewTransition||matchMedia("(prefers-reduced-motion: reduce)").matches){
+    applyTheme(!isDark); return;
+  }
+  const{left,top,width,height}=e.currentTarget.getBoundingClientRect();
+  const x=left+width/2, y=top+height/2;
+  const radius=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+  const vt=document.startViewTransition(()=>applyTheme(!isDark));
+  vt.ready.then(()=>{
+    document.documentElement.animate(
+      {clipPath:[`circle(0px at ${x}px ${y}px)`,`circle(${radius}px at ${x}px ${y}px)`]},
+      {duration:380,easing:"ease-in-out",pseudoElement:"::view-transition-new(root)"}
+    );
+  });
 };
 // init theme
-if(localStorage.getItem("theme")==="dark") applyTheme(true);
-else if(!localStorage.getItem("theme")&&matchMedia("(prefers-color-scheme: dark)").matches) applyTheme(true);
+{
+  const stored=localStorage.getItem("theme");
+  applyTheme(stored==="dark"||(stored===null&&matchMedia("(prefers-color-scheme: dark)").matches));
+}
 
 /* ---------- avatar dropdown ---------- */
 $("userAvatar").onclick=()=>{
@@ -965,7 +1358,7 @@ $("exportBtn").onclick=()=>{
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `dailyplanner-export-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `dailyplanner-export-${getLocalYMD(new Date())}.json`;
   a.click();
   URL.revokeObjectURL(url);
   $("dropdownContent").classList.remove("show");
@@ -1037,7 +1430,7 @@ $("suggestWeek").onclick=()=>{
   for(let i=0;i<7;i++){
     const d = new Date(today);
     d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalYMD(d);
     const dow = d.getDay();
     const skips = new Set();
     (state.fixed||[]).forEach(f => {
@@ -1117,6 +1510,7 @@ let activeTimeCol = "h";   // which time column the keyboard is driving ("h" | "
 function closeCustomMenus(refocus){
   $("customSelectMenu").hidden = true;
   $("customTimePicker").hidden = true;
+  $("customDatePicker").hidden = true;
   if(activeCustomEl){
     activeCustomEl.setAttribute("aria-expanded","false");
     if(refocus) activeCustomEl.focus();
@@ -1216,6 +1610,8 @@ document.addEventListener("click", e => {
   if(selTrigger && $("customSelectMenu").hidden){ openSelect(selTrigger); return; }
   const timeTrigger = e.target.closest(".c-time");
   if(timeTrigger && $("customTimePicker").hidden){ openTime(timeTrigger); return; }
+  const dateTrigger = e.target.closest(".c-date");
+  if(dateTrigger && $("customDatePicker").hidden){ openDate(dateTrigger); return; }
 
   // Custom Select Global Click
   if(e.target.classList.contains("cs-opt")) {
@@ -1229,6 +1625,10 @@ document.addEventListener("click", e => {
   // close the time popup when clicking outside it (and not on a time field)
   if(!e.target.closest("#customTimePicker") && !e.target.closest(".c-time")) {
     if(!$("customTimePicker").hidden){ $("customTimePicker").hidden = true; activeCustomEl && activeCustomEl.setAttribute("aria-expanded","false"); }
+  }
+  // close the date popup when clicking outside it (and not on a date field)
+  if(!e.target.closest("#customDatePicker") && !e.target.closest(".c-date")) {
+    if(!$("customDatePicker").hidden){ $("customDatePicker").hidden = true; activeCustomEl && activeCustomEl.setAttribute("aria-expanded","false"); }
   }
 
   // Custom Time global click
@@ -1244,14 +1644,23 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => {
   const selOpen = !$("customSelectMenu").hidden;
   const timeOpen = !$("customTimePicker").hidden;
+  const dateOpen = !$("customDatePicker").hidden;
 
   // nothing open: Enter/Space on a focused control opens it
-  if(!selOpen && !timeOpen){
+  if(!selOpen && !timeOpen && !dateOpen){
     const el = e.target;
-    if(el.classList && (el.classList.contains("c-sel") || el.classList.contains("c-time")) && (e.key==="Enter" || e.key===" ")){
+    if(el.classList && (el.classList.contains("c-sel") || el.classList.contains("c-time") || el.classList.contains("c-date")) && (e.key==="Enter" || e.key===" ")){
       e.preventDefault();
-      el.classList.contains("c-sel") ? openSelect(el) : openTime(el);
+      if(el.classList.contains("c-sel")) openSelect(el);
+      else if(el.classList.contains("c-time")) openTime(el);
+      else openDate(el);
     }
+    return;
+  }
+
+  // date picker open: Escape closes
+  if(dateOpen){
+    if(e.key==="Escape"){ e.preventDefault(); closeCustomMenus(true); }
     return;
   }
 
@@ -1392,6 +1801,239 @@ function initLangSelect(){
   });
 }
 
+/* ---------- custom date picker ---------- */
+let dpCurrentMonth = new Date();
+dpCurrentMonth.setDate(1);
+
+window.openDate = function(el) {
+  activeCustomEl = el;
+  const hidden = el.querySelector("input[type=hidden]");
+  const val = hidden.value;
+  if (val) {
+    const [y, m] = val.split('-');
+    dpCurrentMonth = new Date(parseInt(y,10), parseInt(m,10)-1, 1);
+  } else {
+    const now = new Date();
+    dpCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  renderDpGrid();
+  const pop = $("customDatePicker");
+  pop.hidden = false;
+  const rect = el.getBoundingClientRect();
+  const popH = pop.offsetHeight;
+  let top = rect.bottom + 4;
+  if (top + popH > window.innerHeight - 8 && rect.top - popH - 4 > 0) top = rect.top - popH - 4;
+  let left = rect.left + window.scrollX;
+  if (left + pop.offsetWidth > window.innerWidth - 8) left = window.innerWidth - pop.offsetWidth - 8;
+  if (left < 8) left = 8;
+  pop.style.top = (top + window.scrollY) + "px";
+  pop.style.left = left + "px";
+  el.setAttribute("aria-expanded", "true");
+};
+
+function renderDpGrid() {
+  const hidden = activeCustomEl ? activeCustomEl.querySelector("input[type=hidden]") : null;
+  const selectedVal = hidden ? hidden.value : "";
+  const year = dpCurrentMonth.getFullYear();
+  const month = dpCurrentMonth.getMonth();
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  $("dpTitle").textContent = `${monthNames[month]} ${year}`;
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevDays = new Date(year, month, 0).getDate();
+  const todayStr = getLocalYMD(new Date());
+  const grid = $("dpGrid");
+  grid.innerHTML = "";
+  for (let i = 0; i < 42; i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "dp-day";
+    let day, dateStr;
+    if (i < firstDow) {
+      day = prevDays - firstDow + i + 1;
+      dateStr = getLocalYMD(new Date(year, month-1, day));
+      btn.classList.add("other-month");
+    } else if (i >= firstDow + daysInMonth) {
+      day = i - firstDow - daysInMonth + 1;
+      dateStr = getLocalYMD(new Date(year, month+1, day));
+      btn.classList.add("other-month");
+    } else {
+      day = i - firstDow + 1;
+      dateStr = getLocalYMD(new Date(year, month, day));
+    }
+    btn.textContent = day;
+    btn.dataset.date = dateStr;
+    if (dateStr === todayStr) btn.classList.add("today");
+    if (dateStr === selectedVal) btn.classList.add("selected");
+    btn.onclick = (ev) => { ev.stopPropagation(); chooseDateOption(dateStr); };
+    grid.appendChild(btn);
+  }
+}
+
+function chooseDateOption(dateStr) {
+  if (!activeCustomEl) { closeCustomMenus(); return; }
+  const hidden = activeCustomEl.querySelector("input[type=hidden]");
+  hidden.value = dateStr;
+  activeCustomEl.querySelector(".cd-head").textContent = formatDateDisplay(dateStr);
+  activeCustomEl.classList.remove("empty");
+  activeCustomEl.setAttribute("aria-label", "date " + dateStr);
+  closeCustomMenus(true);
+  hidden.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+$("dpPrevMonth").onclick = (e) => { e.stopPropagation(); dpCurrentMonth.setMonth(dpCurrentMonth.getMonth()-1); renderDpGrid(); };
+$("dpNextMonth").onclick = (e) => { e.stopPropagation(); dpCurrentMonth.setMonth(dpCurrentMonth.getMonth()+1); renderDpGrid(); };
+$("dpTodayBtn").onclick = (e) => { e.stopPropagation(); chooseDateOption(getLocalYMD(new Date())); };
+$("dpClearBtn").onclick = (e) => {
+  e.stopPropagation();
+  if (!activeCustomEl) { closeCustomMenus(); return; }
+  const hidden = activeCustomEl.querySelector("input[type=hidden]");
+  hidden.value = "";
+  activeCustomEl.querySelector(".cd-head").textContent = "No date";
+  activeCustomEl.classList.add("empty");
+  activeCustomEl.setAttribute("aria-label", "date none");
+  closeCustomMenus(true);
+  hidden.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
+/* ---------- month calendar ---------- */
+let currentMonthDate = new Date();
+currentMonthDate.setDate(1);
+
+function renderMonth() {
+  const grid = $("monthGrid");
+  const title = $("monthTitle");
+  if(!grid || !title) return;
+  
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+  
+  // formatting
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  title.textContent = `${monthNames[month]} ${year}`;
+  
+  // calculate days
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startDow = firstDay.getDay(); // 0 is Sunday
+  
+  // calculate 7-day week plan for visualization
+  const todayForPlan = new Date();
+  todayForPlan.setHours(0,0,0,0);
+  const weekPlan = buildWeek(state, todayForPlan.getDay());
+  const weekDates = [];
+  for(let i=0; i<7; i++){
+    const d = new Date(todayForPlan);
+    d.setDate(d.getDate() + i);
+    weekDates.push(getLocalYMD(d));
+  }
+  
+  grid.innerHTML = "";
+  
+  // headers
+  const dowNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  dowNames.forEach(d => {
+    const th = document.createElement("div");
+    th.className = "month-header";
+    th.textContent = d;
+    grid.appendChild(th);
+  });
+  
+  const todayStr = getLocalYMD(new Date());
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+  
+  // Render exactly 42 cells (6 weeks)
+  for(let i=0; i<42; i++) {
+    const cell = document.createElement("div");
+    cell.className = "month-day";
+    let cellDate;
+    let isOtherMonth = false;
+    let d;
+    
+    if (i < startDow) {
+      // Previous month
+      d = prevMonthLastDay - startDow + i + 1;
+      cellDate = new Date(year, month - 1, d);
+      isOtherMonth = true;
+    } else if (i >= startDow + daysInMonth) {
+      // Next month
+      d = i - (startDow + daysInMonth) + 1;
+      cellDate = new Date(year, month + 1, d);
+      isOtherMonth = true;
+    } else {
+      // Current month
+      d = i - startDow + 1;
+      cellDate = new Date(year, month, d);
+    }
+    
+    if (isOtherMonth) cell.classList.add("other-month");
+    
+    const dateStr = getLocalYMD(cellDate);
+    if (dateStr === todayStr) cell.classList.add("today");
+    
+    const num = document.createElement("div");
+    num.className = "date-num";
+    num.textContent = cellDate.getDate();
+    if (cellDate.getDate() === 1) {
+      num.textContent = `${monthNames[cellDate.getMonth()].substring(0,3)} ${num.textContent}`;
+    }
+    cell.appendChild(num);
+    
+    const pillsContainer = document.createElement("div");
+    pillsContainer.className = "event-pills";
+    
+    // collect events to show
+    const eventsToShow = [];
+    
+    // Always add specific events
+    const specificEvents = (state.fixed || []).filter(f => f.date === dateStr);
+    specificEvents.forEach(evt => eventsToShow.push({ label: evt.label, type: "specific" }));
+    
+    const weekIdx = weekDates.indexOf(dateStr);
+    if (weekIdx !== -1) {
+      // It's within the next 7 days! Show tasks & immovable blocks (skip meals to save space)
+      const dayPlan = weekPlan.days[weekIdx];
+      dayPlan.immovable.forEach(b => {
+        if(b.type !== "meal") eventsToShow.push({ label: b.label, type: b.type || "routine" });
+      });
+      dayPlan.placed.forEach(t => eventsToShow.push({ label: t.label, type: "task" }));
+    } else {
+      // Outside 7 days: show routine fixed events
+      const cellDow = cellDate.getDay();
+      const routineEvents = (state.fixed || []).filter(f => !f.date && f.days && f.days.includes(cellDow));
+      routineEvents.forEach(evt => eventsToShow.push({ label: evt.label, type: "fixed" }));
+    }
+    
+    eventsToShow.forEach(evtData => {
+      const pill = document.createElement("div");
+      pill.className = `event-pill event-type-${evtData.type}`;
+      pill.textContent = evtData.label;
+      pill.title = evtData.label;
+      pillsContainer.appendChild(pill);
+    });
+    
+    cell.appendChild(pillsContainer);
+    
+    cell.onclick = () => {
+      setPlanDate(dateStr);
+      setTab("schedule");
+      renderPlan();
+    };
+    
+    grid.appendChild(cell);
+  }
+}
+
+if($("prevMonth")) $("prevMonth").onclick = () => {
+  currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
+  renderMonth();
+};
+if($("nextMonth")) $("nextMonth").onclick = () => {
+  currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
+  renderMonth();
+};
+
 /* ---------- boot ---------- */
 async function bootApp() {
 
@@ -1399,17 +2041,23 @@ async function bootApp() {
   await load(); await loadShop(); await loadFin(); await loadKitchen();
   if (!Array.isArray(state.goals)) state.goals = [];    // migrate state saved before goals existed
   if (!Array.isArray(kitchen.aiRecipes)) kitchen.aiRecipes = [];   // migrate pre-AI meal plans
+  if (!state.notes) state.notes = {};
+  if (!state.pinnedNotes) state.pinnedNotes = [];
+  if (!Array.isArray(state.habits)) state.habits = [];
   setCurrency(getCurrency());
   if (typeof renderCurrencyMenu === "function") renderCurrencyMenu();
-  if ($("planDate")) $("planDate").value = new Date().toISOString().split('T')[0];
-  renderInputs(); renderGoals(); renderPlan(); save();
+  setPlanDate(getLocalYMD(new Date()));
+  renderInputs(); renderGoals(); renderPlan(); renderMonth();
   renderShopRows(); renderTaxToggle(); updateShop(); saveShop();
   renderFinInputs(); updateFinance(); saveFin();
   renderKitchen(); saveKitchen();
+  updatePomoDisplay();
+  updateNotifBtn();
   staggerCards(document.getElementById("panel-schedule"));
   wireLabels();
   installLabelObserver();
   applyLanguage();
+  requestAnimationFrame(()=>positionTabIndicator(document.querySelector(".tab[aria-selected='true']")));
 }
 
 /* Re-render functions replace container innerHTML, dropping the for/id wiring on

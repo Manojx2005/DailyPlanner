@@ -46,6 +46,7 @@ export const MESSAGES = {
     /* ── Tab bar ── */
     "tab.day":             "Day",
     "tab.week":            "Week",
+    "tab.month":           "Month",
     "tab.shopping":        "Shopping",
     "tab.meals":           "Meals",
     "tab.finance":         "Finance",
@@ -300,6 +301,7 @@ export const MESSAGES = {
     /* ── Tab bar ── */
     "tab.day":             "今日",
     "tab.week":            "今週",
+    "tab.month":           "今月",
     "tab.shopping":        "買い物",
     "tab.meals":           "食事",
     "tab.finance":         "家計",
@@ -554,6 +556,7 @@ export const MESSAGES = {
     /* ── Tab bar ── */
     "tab.day":             "Hôm nay",
     "tab.week":            "Tuần này",
+    "tab.month":           "Tháng này",
     "tab.shopping":        "Mua sắm",
     "tab.meals":           "Bữa ăn",
     "tab.finance":         "Tài chính",

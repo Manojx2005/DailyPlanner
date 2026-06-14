@@ -4,24 +4,25 @@
    Cache name: bump the version string to force a cache refresh.
    ============================================================ */
 
-const CACHE_NAME = "dayplanner-v7";
+const CACHE_NAME = "dayplanner-v11";
 
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./css/styles.css?v=1.6",
-  "./js/app.js?v=1.6",
+  "./css/styles.css?v=1.9",
+  "./js/app.js?v=2.0",
   "./js/auth.js?v=1.6",
   "./js/calendar.js?v=1.6",
   "./js/finance.js?v=1.6",
   "./js/fx.js?v=1.6",
-  "./js/i18n.js?v=1.6",
+  "./js/i18n.js?v=1.7",
   "./js/meals.js?v=1.6",
   "./js/nutrition.js?v=1.6",
   "./js/schedule.js?v=1.6",
   "./js/shopping.js?v=1.6",
+  "./js/sw-register.js?v=1.7",
   "./js/sync.js?v=1.6",
-  "./js/week.js?v=1.6",
+  "./js/week.js?v=1.7",
   "./config.local.js",
   "./firebase-config.js",
   "./manifest.json",
