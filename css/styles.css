@@ -2505,6 +2505,13 @@ section[id^="panel-"]:not([hidden]) {
 
 /* Collapse header readouts to a wrapping row on narrow screens */
 @media (max-width: 680px) {
+  /* Force brand to full width so header-right (avatar + readout) always
+     sits on its own second row — prevents the avatar from jumping to the
+     top-right corner on tabs that have no readout pill (Notes/Habits/Month). */
+  .brand {
+    flex: 0 0 100%;
+  }
+
   .header-right {
     flex-wrap: wrap;
     gap: 10px;
@@ -2622,9 +2629,7 @@ section[id^="panel-"]:not([hidden]) {
   background: var(--surface);
 }
 
-.month-day.today {
-  /* No special cell border, rely on the date-num circle */
-}
+/* .month-day.today: No special cell border, rely on the date-num circle */
 
 .month-day.today .date-num {
   background: var(--blue);
@@ -2690,6 +2695,81 @@ section[id^="panel-"]:not([hidden]) {
 }
 .event-type-specific {
   background: #f59e0b; /* Amber */
+}
+
+/* month-day header row: date number on left, + button on right */
+.month-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+/* override old margin since it's now inside month-day-header */
+.month-day .date-num {
+  margin-bottom: 0;
+  align-self: auto;
+}
+
+.cal-add-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.month-day:hover .cal-add-btn {
+  opacity: 1;
+}
+
+.cal-add-btn:hover {
+  background: var(--mint);
+  color: var(--navy);
+}
+
+/* always show on mobile (no hover) */
+@media (max-width: 680px) {
+  .cal-add-btn {
+    opacity: 0.55;
+    width: 16px;
+    height: 16px;
+    font-size: 13px;
+  }
+}
+
+/* receipt scan loading spinner text */
+.scan-loading {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* native time input used in quick-add modal */
+.time-native {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  color-scheme: dark light;
 }
 
 .month-header {

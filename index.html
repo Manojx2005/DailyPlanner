@@ -595,6 +595,32 @@ Do not use markdown blocks, just raw JSON.</textarea>
   </div>
 </div>
 
+<!-- quick-add calendar event modal -->
+<div class="overlay" id="calEventModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="calEvtTitle">
+    <h2 id="calEvtTitle">Add event</h2>
+    <div class="hint" id="calEvtDateLbl" style="margin-bottom:16px;font-size:15px;font-weight:600;color:var(--mint)"></div>
+    <div>
+      <label class="f" for="calEvtLabel">Event name</label>
+      <input id="calEvtLabel" placeholder="e.g. Doctor's appointment, Party, Holiday">
+    </div>
+    <div class="daywin" style="margin-top:12px">
+      <div>
+        <label class="f" for="calEvtStart">Start time</label>
+        <input type="time" id="calEvtStart" value="09:00" class="time-native">
+      </div>
+      <div>
+        <label class="f" for="calEvtEnd">End time</label>
+        <input type="time" id="calEvtEnd" value="10:00" class="time-native">
+      </div>
+    </div>
+    <div class="actions" style="margin-top:20px">
+      <button class="btn primary" id="calEvtConfirm" type="button">Add to calendar</button>
+      <button class="btn ghost" id="calEvtCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Custom Select Menu (Global) -->
 <div id="customSelectMenu" class="c-sel-menu" hidden>
   <div class="c-sel-list"></div>

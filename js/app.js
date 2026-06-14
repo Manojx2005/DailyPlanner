@@ -1221,13 +1221,105 @@ function onAiJsonUpload(e){
   reader.readAsText(file);
 }
 
-/* receipt photo: shown only as a visual reference while typing — never uploaded or stored */
-function onPhoto(e){
+/* ---------- receipt AI helpers ---------- */
+function fileToBase64(file){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+}
+
+async function scanReceiptWithGemini(key,base64,mimeType){
+  const prompt=`You are a receipt parser. Extract all purchased line items from this receipt image.
+Return ONLY a valid JSON array with no markdown or explanation.
+Schema: [{"name":"item name","qty":1,"price":198,"cat":"food"}]
+Rules:
+- price = unit price as a plain number (no currency symbol, no commas)
+- qty = integer (default 1)
+- cat = "food" for food/drink, "other" for alcohol or non-food items
+- Exclude totals, taxes, subtotals, discounts, store name, and payment info`;
+  const resp=await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+    {method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:mimeType||"image/jpeg",data:base64}}]}]})}
+  );
+  if(!resp.ok){
+    const errBody=await resp.json().catch(()=>({}));
+    const msg=errBody.error?.message||resp.statusText;
+    throw new Error(resp.status===429?`Rate limited — wait a moment and try again.`:`Gemini error ${resp.status}: ${msg}`);
+  }
+  const data=await resp.json();
+  const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||"[]";
+  return JSON.parse(raw.replace(/```json?\n?/g,"").replace(/```/g,"").trim());
+}
+
+/* Parse raw TextDetector blocks: lines ending in a number are treated as price lines. */
+function parseReceiptText(blocks){
+  const priceRe=/(?:[¥$€£]\s?)?(\d[\d,\.]+)\s*[円¥]?\s*$/;
+  const items=[];
+  for(const b of blocks){
+    const line=(b.rawValue||"").trim();
+    const m=line.match(priceRe);
+    if(!m)continue;
+    const price=parseFloat(m[1].replace(/,/g,""));
+    if(!price||price>99999)continue;
+    const name=line.slice(0,m.index).trim();
+    if(!name)continue;
+    items.push({name,qty:1,price:Math.round(price),cat:"food"});
+  }
+  return items;
+}
+
+async function scanReceiptNative(blob){
+  if(!("TextDetector" in window))return null;
+  const td=new window.TextDetector();
+  const bmp=await createImageBitmap(blob);
+  const blocks=await td.detect(bmp);
+  bmp.close();
+  return parseReceiptText(blocks);
+}
+
+async function onPhoto(e){
   const file=e.target.files&&e.target.files[0];if(!file||!draft)return;
   if(draft.photoURL)URL.revokeObjectURL(draft.photoURL);
   draft.photoURL=URL.createObjectURL(file);
   const shot=$("rmShot");shot.src=draft.photoURL;shot.classList.add("has");
-  e.target.value="";   // allow re-snapping the same file
+  e.target.value="";
+
+  const key=window.GEMINI_API_KEY;
+  const hasNative="TextDetector" in window;
+  if(!key&&!hasNative){
+    const hint=$("rmHint");
+    if(hint)hint.textContent="Photo shown for reference — type items below. (Add a Gemini key to config.local.js for auto-scan.)";
+    return;
+  }
+
+  $("rmRows").innerHTML=`<div class="scan-loading">🔍 Reading receipt…</div>`;
+  $("rmTotal").textContent=yen(0);
+
+  let items=null;
+  let scanErr=null;
+  try{
+    items=key
+      ? await scanReceiptWithGemini(key,(await fileToBase64(file)),file.type)
+      : await scanReceiptNative(file);
+  }catch(err){
+    console.error("Receipt scan failed:",err);
+    scanErr=err.message||"Scan failed";
+  }
+
+  if(items&&items.length){
+    draft.items=items.map(it=>({
+      name:String(it.name||""),
+      qty:Math.max(1,Math.round(Number(it.qty)||1)),
+      price:Number(it.price)||0,
+      cat:it.cat==="other"?"other":"food"
+    }));
+    const hint=$("rmHint");
+    if(hint)hint.textContent="Check each line against the photo, fix anything off, then add.";
+  }else{
+    draft.items=[{name:"",qty:1,price:0,cat:"food"}];
+    const hint=$("rmHint");
+    if(hint)hint.textContent=scanErr||"Couldn't auto-read this receipt — fill in items below.";
+  }
+  renderDraft();
 }
 $("addFixed").onclick=()=>{state.fixed.push({label:"",start:"13:00",end:"14:00"});renderFixed();save();};
 $("addMeal").onclick=()=>{state.meals.push({label:"Snack",time:"15:30",dur:15});renderMeals();save();};
@@ -1972,14 +2064,28 @@ function renderMonth() {
     const dateStr = getLocalYMD(cellDate);
     if (dateStr === todayStr) cell.classList.add("today");
     
+    const dayHeader = document.createElement("div");
+    dayHeader.className = "month-day-header";
+
     const num = document.createElement("div");
     num.className = "date-num";
     num.textContent = cellDate.getDate();
     if (cellDate.getDate() === 1) {
       num.textContent = `${monthNames[cellDate.getMonth()].substring(0,3)} ${num.textContent}`;
     }
-    cell.appendChild(num);
-    
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "cal-add-btn";
+    addBtn.type = "button";
+    addBtn.title = "Add event on this day";
+    addBtn.setAttribute("aria-label", `Add event on ${dateStr}`);
+    addBtn.textContent = "+";
+    addBtn.onclick = (ev) => { ev.stopPropagation(); openQuickAddEvent(dateStr); };
+
+    dayHeader.appendChild(num);
+    dayHeader.appendChild(addBtn);
+    cell.appendChild(dayHeader);
+
     const pillsContainer = document.createElement("div");
     pillsContainer.className = "event-pills";
     
@@ -2033,6 +2139,37 @@ if($("nextMonth")) $("nextMonth").onclick = () => {
   currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
   renderMonth();
 };
+
+/* ---------- quick-add calendar event ---------- */
+let calEventDate = null;
+function openQuickAddEvent(dateStr) {
+  calEventDate = dateStr;
+  const lbl = $("calEvtDateLbl");
+  if (lbl) lbl.textContent = formatDateDisplay(dateStr);
+  $("calEvtLabel").value = "";
+  $("calEvtStart").value = "09:00";
+  $("calEvtEnd").value = "10:00";
+  $("calEventModal").hidden = false;
+  setTimeout(() => $("calEvtLabel").focus(), 50);
+}
+function closeCalEvent() {
+  calEventDate = null;
+  $("calEventModal").hidden = true;
+}
+function confirmCalEvent() {
+  const label = $("calEvtLabel").value.trim();
+  if (!label) { $("calEvtLabel").focus(); return; }
+  const start = $("calEvtStart").value || "09:00";
+  const end   = $("calEvtEnd").value   || "10:00";
+  state.fixed.push({ label, start, end, date: calEventDate, days: [] });
+  closeCalEvent();
+  renderFixed();
+  save();
+  renderMonth();
+}
+if($("calEvtConfirm")) $("calEvtConfirm").onclick = confirmCalEvent;
+if($("calEvtCancel"))  $("calEvtCancel").onclick  = closeCalEvent;
+$("calEvtLabel") && $("calEvtLabel").addEventListener("keydown", e => { if(e.key==="Enter") confirmCalEvent(); });
 
 /* ---------- boot ---------- */
 async function bootApp() {
