@@ -130,7 +130,8 @@
         <div class="hint" data-i18n="day.sec4.hint">Study, coding projects, chores. Sooner deadlines and higher priority get the better slots; study and projects can split across gaps.</div>
         <div class="rows" id="taskRows"></div>
         <button class="add" id="addTask" type="button" data-i18n="btn.addTask">+ Add task</button>
-        <div class="actions">
+        <div class="actions" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <input type="date" id="planDate" style="padding:6px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); color-scheme:dark;">
           <button class="btn primary" id="plan" type="button" data-i18n="btn.planDay">Plan my day</button>
           <button class="btn ghost" id="reset" type="button" data-i18n="btn.reset">Reset</button>
           <span class="saved" id="savedNote"></span>
@@ -241,7 +242,10 @@
             <div class="stat"><div class="k" data-i18n="out.scheduled">Scheduled</div><div class="v" id="wSched">—</div></div>
           </div>
           <div id="wVerdict"></div>
-          <div class="actions"><button class="btn primary" id="planWeek" type="button" data-i18n="btn.planWeek">Plan my week</button></div>
+          <div class="actions" style="display:flex; gap:12px; align-items:center;">
+            <button class="btn primary" id="planWeek" type="button" data-i18n="btn.planWeek">Plan my week</button>
+            <button class="btn ghost" id="exportWeekBtn" type="button" aria-label="Export week to calendar">🗓️ Export Week</button>
+          </div>
           <div id="wTray"></div>
         </div>
       </div>

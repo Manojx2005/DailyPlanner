@@ -108,10 +108,16 @@ function renderFixed(){
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:10px;">
         ${dowPicker("fixed",i,f.days)}
-        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); cursor:pointer; font-weight:500;">
-          <input type="checkbox" style="width:16px;height:16px;accent-color:var(--mint);cursor:pointer;margin:0;" data-k="fixed" data-i="${i}" data-f="skipMeals" ${f.skipMeals?"checked":""}>
-          Free meal / No time to cook
-        </label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; flex-direction:column;">
+            <label class="f" style="margin-bottom:2px">Specific Date</label>
+            <input type="date" data-k="fixed" data-i="${i}" data-f="date" value="${f.date||""}" style="padding:4px; font-size:12px; height:24px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); color-scheme:dark;">
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            <label class="f" style="margin-bottom:2px">Replaces Meal</label>
+            ${cSel("fixed", i, "skipMeal", [{v:"", l:"(None)"}].concat((state.meals||[]).map(m=>({v:m.label, l:m.label}))), f.skipMeal||"")}
+          </div>
+        </div>
       </div>
     </div>`).join("");
 }
@@ -171,9 +177,27 @@ function renderInputs(){
   renderFixed();renderMeals();renderTasks();
 }
 
+function getFilteredState(dateStr) {
+  const dow = new Date(dateStr).getDay();
+  const skips = new Set();
+  const filteredFixed = (state.fixed||[]).filter(f => {
+    if(f.date) {
+      if(f.date !== dateStr) return false;
+    } else {
+      if(f.days && f.days.length && !f.days.includes(dow)) return false;
+    }
+    if(f.skipMeal) skips.add(f.skipMeal);
+    return true;
+  });
+  const filteredMeals = (state.meals||[]).filter(m => !skips.has(m.label));
+  return { ...state, fixed: filteredFixed, meals: filteredMeals };
+}
+
 /* ---------- output ---------- */
 function renderPlan(){
-  const r=buildSchedule(state);
+  const dateStr = $("planDate")?.value || new Date().toISOString().split('T')[0];
+  const filteredState = getFilteredState(dateStr);
+  const r=buildSchedule(filteredState);
   // day-window sanity: wind-down must be after wake (overnight windows aren't supported)
   if(toMin(state.sleep)<=toMin(state.wake))
     r.warnings.unshift(`Wind-down (${state.sleep}) isn't after wake (${state.wake}) — set a later wind-down to get a real day.`);
@@ -638,11 +662,21 @@ function renderNeeds(){
   $("roMeals").textContent=needs.length;
 
   let targetPortions = 0;
-  const todayDow = new Date().getDay();
+  const today = new Date();
   for(let i=0;i<7;i++){
-    const dow=(todayDow+i)%7;
-    const skips = (state.fixed||[]).filter(f=>!f.days||!f.days.length||f.days.includes(dow)).some(f=>f.skipMeals);
-    if (!skips) targetPortions += (state.meals || []).length;
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const dow = d.getDay();
+    const skips = new Set();
+    (state.fixed||[]).forEach(f => {
+      if(f.date) {
+        if(f.date === dateStr && f.skipMeal) skips.add(f.skipMeal);
+      } else {
+        if((!f.days || !f.days.length || f.days.includes(dow)) && f.skipMeal) skips.add(f.skipMeal);
+      }
+    });
+    targetPortions += (state.meals || []).filter(m => !skips.has(m.label)).length;
   }
   let plannedPortions = kitchen.plan.filter(p=>!p.made).reduce((sum, p) => {
     const r = recipeById(p.recipeId);
@@ -859,11 +893,30 @@ $("addFixed").onclick=()=>{state.fixed.push({label:"",start:"13:00",end:"14:00"}
 $("addMeal").onclick=()=>{state.meals.push({label:"Snack",time:"15:30",dur:15});renderMeals();save();};
 $("addTask").onclick=()=>{state.tasks.push({label:"",dur:30,category:"study",priority:"med",deadlineDays:3});renderTasks();save();};
 $("plan").onclick=renderPlan;
+if($("planDate")) $("planDate").onchange=renderPlan;
 $("exportCalBtn").onclick=()=>{
-  const r=buildSchedule(state);
-  const events=timelineToEvents(r.timeline,new Date());
-  if(!events.length){alert("Nothing to export yet — press Plan my day first.");return;}
+  const dateStr = $("planDate")?.value || new Date().toISOString().split('T')[0];
+  const filteredState = getFilteredState(dateStr);
+  const r=buildSchedule(filteredState);
+  const events=timelineToEvents(r.timeline,new Date(dateStr));
+  if(!events.length){alert("Nothing to export yet - press Plan my day first.");return;}
   downloadICS("dayplan.ics",buildICS(events));
+};
+if($("exportWeekBtn")) $("exportWeekBtn").onclick=()=>{
+  let allEvents = [];
+  const baseDate = new Date();
+  for(let i=0; i<7; i++) {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const filteredState = getFilteredState(dateStr);
+    filteredState.tasks = []; // We do not export week tasks since they aren't assigned specific dates
+    const r = buildSchedule(filteredState);
+    const events = timelineToEvents(r.timeline, d);
+    allEvents = allEvents.concat(events);
+  }
+  if(!allEvents.length){alert("Nothing to export.");return;}
+  downloadICS("weekplan.ics",buildICS(allEvents));
 };
 $("reset").onclick=async()=>{state=structuredClone(DEFAULT);renderInputs();await save();renderPlan();};
 $("addItem").onclick=()=>{shop.items.push({name:"",qty:1,price:0,cat:"food",got:false});renderShopRows();updateShop();saveShop();};
@@ -980,11 +1033,21 @@ $("addPantry").onclick=addPantryItem;
 $("pantryInput").addEventListener("keydown",e=>{if(e.key==="Enter")addPantryItem();});
 $("suggestWeek").onclick=()=>{
   let targetPortions = 0;
-  const todayDow = new Date().getDay();
+  const today = new Date();
   for(let i=0;i<7;i++){
-    const dow=(todayDow+i)%7;
-    const skips = (state.fixed||[]).filter(f=>!f.days||!f.days.length||f.days.includes(dow)).some(f=>f.skipMeals);
-    if (!skips) targetPortions += (state.meals || []).length;
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const dow = d.getDay();
+    const skips = new Set();
+    (state.fixed||[]).forEach(f => {
+      if(f.date) {
+        if(f.date === dateStr && f.skipMeal) skips.add(f.skipMeal);
+      } else {
+        if((!f.days || !f.days.length || f.days.includes(dow)) && f.skipMeal) skips.add(f.skipMeal);
+      }
+    });
+    targetPortions += (state.meals || []).filter(m => !skips.has(m.label)).length;
   }
   kitchen.plan=suggestWeek(allRecipes(), targetPortions).map(id=>({recipeId:id, made:false}));  // include custom/imported recipes, not just built-ins
   renderKitchen();
@@ -1338,6 +1401,7 @@ async function bootApp() {
   if (!Array.isArray(kitchen.aiRecipes)) kitchen.aiRecipes = [];   // migrate pre-AI meal plans
   setCurrency(getCurrency());
   if (typeof renderCurrencyMenu === "function") renderCurrencyMenu();
+  if ($("planDate")) $("planDate").value = new Date().toISOString().split('T')[0];
   renderInputs(); renderGoals(); renderPlan(); save();
   renderShopRows(); renderTaxToggle(); updateShop(); saveShop();
   renderFinInputs(); updateFinance(); saveFin();
