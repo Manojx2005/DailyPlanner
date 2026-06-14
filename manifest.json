@@ -1,0 +1,20 @@
+{
+  "name": "Day Planner",
+  "short_name": "Planner",
+  "description": "Schedule, goals, finances & meals — a personal dashboard for daily life.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0A1118",
+  "theme_color": "#2BD47D",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

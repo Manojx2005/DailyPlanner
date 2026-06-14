@@ -1,0 +1,12 @@
+# Local secrets — never commit your API key
+config.local.js
+
+# npm
+node_modules/
+
+# Cache and metadata
+.firebase/
+.claude/
+.claude.json
+.DS_Store
+Thumbs.db

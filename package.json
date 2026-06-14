@@ -1,0 +1,19 @@
+{
+  "name": "dailyplanner",
+  "version": "1.0.0",
+  "description": "A zero-dependency personal dashboard for students living in Japan. Plan your day and **week**, protect your study **goals**, track **finances** in yen (with Japan's 8% / 10% consumption tax), and plan **meals** that auto-generate a shopping list. An optional **Gemini assistant** can read your timetable, invent recipes, and make changes for you — using *your own* API key, stored only in your browser.",
+  "main": "config.example.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "framer-motion": "^12.40.0"
+  }
+}

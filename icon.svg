@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Dark rounded square background -->
+  <rect width="512" height="512" rx="96" ry="96" fill="#0A1118"/>
+  <!-- Calendar grid lines (horizontal) -->
+  <rect x="128" y="176" width="256" height="8" rx="4" fill="#2D3E50"/>
+  <rect x="128" y="224" width="256" height="8" rx="4" fill="#2D3E50"/>
+  <rect x="128" y="272" width="256" height="8" rx="4" fill="#2D3E50"/>
+  <rect x="128" y="320" width="256" height="8" rx="4" fill="#2D3E50"/>
+  <!-- Calendar top bar -->
+  <rect x="128" y="128" width="256" height="32" rx="8" fill="#1C2B3A"/>
+  <!-- Accent dots on the header pins -->
+  <circle cx="192" cy="112" r="14" fill="#2BD47D"/>
+  <circle cx="320" cy="112" r="14" fill="#2BD47D"/>
+  <!-- Task blocks (schedule rows) -->
+  <rect x="144" y="184" width="100" height="16" rx="4" fill="#2BD47D" opacity="0.9"/>
+  <rect x="144" y="232" width="160" height="16" rx="4" fill="#3B82F6" opacity="0.8"/>
+  <rect x="144" y="280" width="80" height="16" rx="4" fill="#2BD47D" opacity="0.6"/>
+  <rect x="144" y="328" width="130" height="16" rx="4" fill="#3B82F6" opacity="0.5"/>
+</svg>

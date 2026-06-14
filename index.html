@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Content-Security-Policy: script-src has NO 'unsafe-inline', so injected/inline
+     scripts can't execute — defence-in-depth against XSS. Firebase loads from gstatic;
+     style 'unsafe-inline' is required by the app's inline style attributes (not a script risk). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.googleusercontent.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://*.firebaseapp.com https://*.web.app https://accounts.google.com https://apis.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'">
+<title>Day Planner</title>
+<meta name="description" content="Schedule, goals, finances & meals — a personal dashboard for daily life in Tokyo.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2BD47D">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ====== APP ====== -->
+<div class="wrap fade-in" id="appWrap">
+  <header>
+    <div class="brand">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <h1><span class="dot"></span><span data-i18n="app.title">Day Planner</span></h1>
+        <button class="iconbtn" id="themeToggle" type="button" data-i18n-aria="aria.themeToggle" aria-label="Toggle dark mode" style="font-size:18px">🌙</button>
+        <div class="lang-menu" id="langMenu">
+          <button class="iconbtn" id="langToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Language" style="font-size:18px">🌐</button>
+          <div class="dropdown-content lang-dropdown" id="langDropdown"></div>
+        </div>
+      </div>
+      <p data-i18n="app.tagline">Enter what's fixed, list what you need to do — get a real schedule and your actual free time.</p>
+    </div>
+    <div class="header-right">
+      <div class="user-menu" id="userMenu">
+        <div class="user-avatar" id="userAvatar" title="Account"></div>
+        <div class="dropdown-content" id="dropdownContent">
+          <button class="dropdown-btn" id="importBtn" type="button" data-i18n="menu.importJson">Import JSON</button>
+          <button class="dropdown-btn" id="exportBtn" type="button" data-i18n="menu.exportJson">Export JSON</button>
+          <div class="divider"></div>
+          <button class="dropdown-btn signout-btn" id="signOutBtn" type="button" data-i18n="menu.signOut">Sign out</button>
+        </div>
+        <input type="file" id="importFile" accept=".json" hidden>
+      </div>
+      <div class="readout" id="ro-schedule">
+        <div class="lbl" data-i18n="readout.freeToday">Free time today</div>
+        <div class="val" id="roFree">—</div>
+        <div class="sub" id="roSub">plan to calculate</div>
+      </div>
+      <div class="readout" id="ro-shopping" hidden>
+        <div class="lbl" data-i18n="readout.totalTaxIncl">Total (tax incl.)</div>
+        <div class="val" id="roTotal">¥0</div>
+        <div class="sub" id="roLeft">0 items</div>
+      </div>
+      <div class="readout" id="ro-finance" hidden>
+        <div class="lbl" data-i18n="readout.netSavings">Net savings</div>
+        <div class="val" id="roNet">¥0</div>
+        <div class="sub" id="roRate">—</div>
+      </div>
+      <div class="readout" id="ro-week" hidden>
+        <div class="lbl" data-i18n="readout.freeWeek">Free this week</div>
+        <div class="val" id="roWeek">—</div>
+        <div class="sub" id="roWeekSub" data-i18n="readout.sevenDay">7-day plan</div>
+      </div>
+      <div class="readout" id="ro-meals" hidden>
+        <div class="lbl" data-i18n="readout.toBuyMeals">To buy for meals</div>
+        <div class="val" id="roMeals">0</div>
+        <div class="sub" id="roMealsSub">pick recipes</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" id="tabBar">
+    <button class="tab" data-tab="schedule" role="tab" aria-selected="true" data-i18n="tab.day">Day</button>
+    <button class="tab" data-tab="week" role="tab" aria-selected="false" data-i18n="tab.week">Week</button>
+    <button class="tab" data-tab="shopping" role="tab" aria-selected="false" data-i18n="tab.shopping">Shopping</button>
+    <button class="tab" data-tab="meals" role="tab" aria-selected="false" data-i18n="tab.meals">Meals</button>
+    <button class="tab" data-tab="finance" role="tab" aria-selected="false" data-i18n="tab.finance">Finance</button>
+  </div>
+
+  <section id="panel-schedule">
+  <div class="grid">
+    <!-- INPUT -->
+    <div>
+      <div class="card">
+        <h2><span class="n">1</span> <span data-i18n="day.sec1.title">Day window</span></h2>
+        <div class="hint" data-i18n="day.sec1.hint">When you're up and reachable. Everything is scheduled inside this.</div>
+        <div class="daywin">
+          <div><label class="f" id="wakeLbl" data-i18n="label.wake">Wake</label>
+            <div class="c-time" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="wakeLbl">
+              <div class="ct-head">07:00</div>
+              <input type="hidden" id="wake" value="07:00">
+            </div>
+          </div>
+          <div><label class="f" id="sleepLbl" data-i18n="label.windDown">Wind down</label>
+            <div class="c-time" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="sleepLbl">
+              <div class="ct-head">23:30</div>
+              <input type="hidden" id="sleep" value="23:30">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">2</span> <span data-i18n="day.sec2.title">Fixed blocks</span></h2>
+        <div class="hint" data-i18n="day.sec2.hint">Classes and your part-time job. Tick the weekdays each one repeats on — that drives the Week tab.</div>
+        <div class="rows" id="fixedRows"></div>
+        <button class="add" id="addFixed" type="button" data-i18n="btn.addFixed">+ Add class or work block</button>
+        <div class="snaprow">
+          <button class="btn ghost" id="timetableBtn" type="button" style="flex:1" data-i18n="btn.scanTimetable">📷 Scan / attach timetable</button>
+        </div>
+        <input type="file" id="timetableCam" class="cam" accept="image/*">
+        <div class="finehint" id="timetableStatus"></div>
+        <img class="timetable-shot" id="timetableShot" alt="Your timetable photo, for reference while filling the grid">
+      </div>
+
+      <div class="card">
+        <h2><span class="n">3</span> <span data-i18n="day.sec3.title">Meals</span></h2>
+        <div class="hint" data-i18n="day.sec3.hint">Prep + eating time. These reserve slots so tasks don't land on them.</div>
+        <div class="rows" id="mealRows"></div>
+        <button class="add" id="addMeal" type="button" data-i18n="btn.addMeal">+ Add meal</button>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">4</span> <span data-i18n="day.sec4.title">Tasks to fit</span></h2>
+        <div class="hint" data-i18n="day.sec4.hint">Study, coding projects, chores. Sooner deadlines and higher priority get the better slots; study and projects can split across gaps.</div>
+        <div class="rows" id="taskRows"></div>
+        <button class="add" id="addTask" type="button" data-i18n="btn.addTask">+ Add task</button>
+        <div class="actions">
+          <button class="btn primary" id="plan" type="button" data-i18n="btn.planDay">Plan my day</button>
+          <button class="btn ghost" id="reset" type="button" data-i18n="btn.reset">Reset</button>
+          <span class="saved" id="savedNote"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div>
+      <div class="card">
+        <h2 data-i18n="out.summary">Summary</h2>
+        <div class="stats">
+          <div class="stat"><div class="k" data-i18n="out.free">Free</div><div class="v" id="sFree">—</div></div>
+          <div class="stat"><div class="k" data-i18n="out.requested">Requested</div><div class="v" id="sReq">—</div></div>
+          <div class="stat"><div class="k" data-i18n="out.scheduled">Scheduled</div><div class="v" id="sSched">—</div></div>
+        </div>
+        <div id="verdict"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="out.yourDay">Your day</h2>
+        <div class="legend">
+          <span><i style="background:var(--fixed)"></i><span data-i18n="legend.fixed">Fixed</span></span>
+          <span><i style="background:var(--meal)"></i><span data-i18n="legend.meal">Meal</span></span>
+          <span><i style="background:var(--study)"></i><span data-i18n="legend.study">Study</span></span>
+          <span><i style="background:var(--project)"></i><span data-i18n="legend.project">Project</span></span>
+          <span><i style="background:var(--chore)"></i><span data-i18n="legend.chore">Chore</span></span>
+          <span><i style="background:var(--border)"></i><span data-i18n="legend.free">Free</span></span>
+        </div>
+        <div id="timeline"><div class="empty" data-i18n="timeline.empty">Add your day, then press Plan my day.</div></div>
+        <div id="tray"></div>
+        <div id="warns"></div>
+        <div class="export" id="exportWrap" style="display:none">
+          <div class="calrow">
+            <button class="btn ghost" id="exportCalBtn" type="button">📅 Export to calendar (.ics)</button>
+            <span class="finehint">Works with Google, Apple/iPhone &amp; Samsung calendars</span>
+          </div>
+          <label class="f" for="exportTxt" data-i18n="export.dayLabel">Plain-text plan (copy to paste anywhere)</label>
+          <textarea id="exportTxt" readonly></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <section id="panel-shopping" hidden>
+    <div class="grid">
+      <!-- INPUT -->
+      <div>
+        <div class="card">
+          <h2><span class="n">¥</span> <span data-i18n="shop.priceMode.title">How you enter prices</span></h2>
+          <div class="hint" data-i18n="shop.priceMode.hint">Shelf tags in Japan usually show the tax-included price (税込). Pick which you're typing — alcohol and non-food count as "Other" (10%).</div>
+          <div class="taxtoggle" id="taxToggle">
+            <button data-mode="excl" type="button" aria-pressed="true" data-i18n="shop.taxExcl">Tax-excluded 税抜</button>
+            <button data-mode="incl" type="button" aria-pressed="false" data-i18n="shop.taxIncl">Tax-included 税込</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="shop.list.title">Shopping list</h2>
+          <div class="hint" data-i18n="shop.list.hint">Quantity × unit price, per item. Tick the box as each goes in your basket to see what's still left to pay.</div>
+          <div class="rows" id="shopRows"></div>
+          <button class="add" id="addItem" type="button" data-i18n="btn.addItem">+ Add item</button>
+          <div class="actions">
+            <button class="btn ghost" id="resetShop" type="button" data-i18n="btn.resetList">Reset list</button>
+            <span class="saved" id="savedShop"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div>
+        <div class="card">
+          <h2 data-i18n="shop.breakdown.title">Cost breakdown</h2>
+          <div class="moneystats">
+            <div class="stat"><div class="k" data-i18n="shop.subtotal">Subtotal 税抜</div><div class="v" id="mSub">¥0</div></div>
+            <div class="stat"><div class="k" data-i18n="shop.items">Items</div><div class="v" id="mCount">0</div></div>
+            <div class="stat"><div class="k" data-i18n="shop.tax8">Tax 8% · food</div><div class="v" id="mTax8">¥0</div></div>
+            <div class="stat"><div class="k" data-i18n="shop.tax10">Tax 10% · other</div><div class="v" id="mTax10">¥0</div></div>
+          </div>
+          <div class="total-line"><span class="lab" data-i18n="shop.total">Total 税込</span><span class="amt" id="mTotal">¥0</span></div>
+          <div class="left-line"><span data-i18n="shop.stillToBuy">Still to buy (unticked)</span><b id="mLeft">¥0</b></div>
+          <div class="export" style="margin-top:16px">
+            <label class="f" for="shopTxt" data-i18n="shop.export.label">Plain-text list (copy to paste anywhere)</label>
+            <textarea id="shopTxt" readonly style="height:140px"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-week" hidden>
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2 data-i18n="week.goals.title">Goals — what you're working toward</h2>
+          <div class="hint" data-i18n="week.goals.hint">Set a weekly hour target per goal. The planner schedules these first, as protected study blocks, before other tasks. This is the part a timetable photo can't tell it — only you can.</div>
+          <div class="rows" id="goalRows"></div>
+          <button class="add" id="addGoal" type="button" data-i18n="btn.addGoal">+ Add a goal</button>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="week.yourWeek.title">Your week</h2>
+          <div class="hint" data-i18n="week.yourWeek.hint">Built from your day window, the weekdays each class/shift repeats on, your meals, and your tasks — spread across the next 7 days by deadline and priority.</div>
+          <div class="stats">
+            <div class="stat"><div class="k" data-i18n="out.free">Free</div><div class="v" id="wFree">—</div></div>
+            <div class="stat"><div class="k" data-i18n="out.requested">Requested</div><div class="v" id="wReq">—</div></div>
+            <div class="stat"><div class="k" data-i18n="out.scheduled">Scheduled</div><div class="v" id="wSched">—</div></div>
+          </div>
+          <div id="wVerdict"></div>
+          <div class="actions"><button class="btn primary" id="planWeek" type="button" data-i18n="btn.planWeek">Plan my week</button></div>
+          <div id="wTray"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h2 data-i18n="week.goalProgress">Goal progress this week</h2>
+          <div class="cards-wrap" id="goalProgress"><div class="empty" data-i18n="week.goalEmpty">Add a goal to see its weekly hours.</div></div>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="week.timeline.title">7-day timeline</h2>
+          <div class="legend">
+            <span><i style="background:var(--fixed)"></i><span data-i18n="legend.fixed">Fixed</span></span>
+            <span><i style="background:var(--meal)"></i><span data-i18n="legend.meal">Meal</span></span>
+            <span><i style="background:var(--study)"></i><span data-i18n="legend.study">Study</span></span>
+            <span><i style="background:var(--project)"></i><span data-i18n="legend.project">Project</span></span>
+            <span><i style="background:var(--chore)"></i><span data-i18n="legend.chore">Chore</span></span>
+          </div>
+          <div class="weekgrid" id="weekGrid"><div class="empty" data-i18n="week.timeline.empty">Press Plan my week.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-meals" hidden>
+    <div class="grid">
+      <!-- INPUT -->
+      <div>
+        <div class="card">
+          <h2 data-i18n="meals.pantry.title">Pantry — what you already have</h2>
+          <div class="hint" data-i18n="meals.pantry.hint">Staples here are skipped when generating the shopping list. Add or remove to match your kitchen.</div>
+          <div class="chips" id="pantryChips"></div>
+          <div class="addchip">
+            <input id="pantryInput" data-i18n-ph="meals.pantry.ph" placeholder="e.g. Eggs" data-i18n-aria="aria.pantryInput" aria-label="Add pantry staple">
+            <button id="addPantry" type="button" data-i18n="meals.pantry.btn">Add</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="meals.recipes.title">Recipe library</h2>
+          <div class="hint" data-i18n="meals.recipes.hint">Tap to add a meal to this week. You can also build your own meals here.</div>
+          <div class="add-meal" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+            <input id="customMealName" data-i18n-ph="meals.mealName.ph" placeholder="Meal Name (e.g. Avocado Toast)" data-i18n-aria="aria.mealName" aria-label="Meal Name">
+            <textarea id="customMealIngredients" data-i18n-ph="meals.ingredients.ph" placeholder="Ingredients (one per line or comma separated)" data-i18n-aria="aria.ingredients" aria-label="Ingredients" style="min-height:60px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:var(--sans);"></textarea>
+            <textarea id="customMealInstructions" data-i18n-ph="meals.instructions.ph" placeholder="Cooking Instructions (one step per line)" data-i18n-aria="aria.instructions" aria-label="Instructions" style="min-height:60px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:var(--sans);"></textarea>
+            <div style="display:flex; gap:8px;">
+              <input id="customMealUrl" type="url" data-i18n-ph="meals.recipeLink.ph" placeholder="Recipe Link (optional)" data-i18n-aria="aria.recipeLink" aria-label="Recipe Link" style="flex:1;">
+              <button id="addCustomMealBtn" type="button" class="btn primary" data-i18n="btn.addCustomMeal">Add</button>
+            </div>
+            
+            <details style="margin-top:8px; border:1px solid var(--border); border-radius:10px; overflow:hidden;">
+              <summary style="padding:10px 12px; background:var(--bg); cursor:pointer; font-weight:600; color:var(--text); font-size:14px; user-select:none;" data-i18n="meals.aiImport.title">🤖 Import recipes from AI</summary>
+              <div style="padding:12px; border-top:1px solid var(--border); background:var(--bg); display:flex; flex-direction:column; gap:8px;">
+                <div class="hint" style="margin-bottom:4px;" data-i18n="meals.aiImport.hint">Copy this prompt to your personal AI (ChatGPT, Claude, etc), then upload the JSON file it gives you.</div>
+                <textarea id="aiPromptText" readonly data-i18n-aria="aria.aiPrompt" aria-label="AI recipe prompt to copy" style="min-height:100px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-secondary); font-family:var(--sans); font-size:13px; resize:none;">I need a JSON array of 5 recipes for my meal planner app. 
+Output ONLY valid JSON.
+Each recipe must match this schema exactly:
+{
+  "name": "Recipe Name",
+  "cuisine": "Cuisine Type",
+  "serves": 2,
+  "instructions": [ "Step 1", "Step 2" ],
+  "ingredients": [
+    { "name": "Ingredient 1", "qty": 1, "unit": "cup" }
+  ]
+}
+Do not use markdown blocks, just raw JSON.</textarea>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                  <button id="copyAiPromptBtn" type="button" class="btn ghost" style="padding:6px 12px; font-size:13px;" data-i18n="btn.copyPrompt">📋 Copy Prompt</button>
+                  <label class="btn primary" style="cursor:pointer; padding:6px 12px; font-size:13px;">
+                    <span data-i18n="btn.uploadJson">Upload JSON</span>
+                    <input type="file" id="aiJsonUpload" accept=".json" style="display:none;">
+                  </label>
+                </div>
+              </div>
+            </details>
+          </div>
+          <div class="rows" id="recipeList" style="margin-top:16px"></div>
+        </div>
+      </div>
+      <!-- OUTPUT -->
+      <div>
+        <div class="card">
+          <h2 data-i18n="meals.thisWeek.title">This week's meals</h2>
+          <div class="actions" style="margin-top:0">
+            <button class="btn ghost" id="suggestWeek" type="button" data-i18n="btn.suggestWeek">Suggest a varied week</button>
+            <button class="btn ghost" id="clearMeals" type="button" data-i18n="btn.clearMeals">Clear</button>
+          </div>
+          <div class="rows" id="planList" style="margin-top:12px"></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="meals.shopList.title">Shopping list to generate</h2>
+          <div class="hint" data-i18n="meals.shopList.hint">Missing ingredients only (pantry staples excluded), merged across meals.</div>
+          <div class="needlist" id="needList"><div class="empty" style="padding:16px" data-i18n="meals.noMealsPicked">No meals picked yet.</div></div>
+          <div class="actions">
+            <button class="btn primary" id="genShop" type="button" data-i18n="btn.addMissing">→ Add missing items to Shopping</button>
+            <span class="saved" id="savedKitchen"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-finance" hidden>
+    <div class="grid">
+      <!-- INPUT -->
+      <div>
+        <div class="card">
+          <h2><span class="n">¥</span> <span data-i18n="fin.income.title">Income &amp; balance</span></h2>
+          <div class="hint" data-i18n="fin.income.hint">What comes in this month, and what's already in your account.</div>
+          <div><label class="f" for="finInitial" data-i18n="fin.initialBal">Initial account balance ¥</label>
+            <input type="number" id="finInitial" min="0" step="1000" value="0"></div>
+          <div class="rows" id="incomeRows" style="margin-top:12px"></div>
+          <button class="add" id="addIncome" type="button" data-i18n="btn.addIncome">+ Add income source</button>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="fin.cards.title">Credit cards</h2>
+          <div class="hint" data-i18n="fin.cards.hint">Just the name and limit — each card's spend is filled in automatically from purchases you mark as paid by it.</div>
+          <div class="rows" id="cardRows"></div>
+          <button class="add" id="addCard" type="button" data-i18n="btn.addCard">+ Add card</button>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="fin.expenses.title">Expenses</h2>
+          <div class="hint" data-i18n="fin.expenses.hint">Rent, phone, transport — anything that isn't a scanned grocery receipt. Pick how each was paid.</div>
+          <div class="rows" id="expRows"></div>
+          <button class="add" id="addExpense" type="button" data-i18n="btn.addExpense">+ Add expense</button>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="fin.receipts.title">Grocery receipts</h2>
+          <div class="hint" data-i18n="fin.receipts.hint">Snap a receipt and confirm the line items — nothing is sent anywhere, you type what you see.</div>
+          <div class="rows" id="receiptRows"></div>
+          <div class="snaprow">
+            <button class="btn primary" id="snapReceipt" type="button" data-i18n="btn.snapReceipt">📷 Scan receipt</button>
+            <button class="btn ghost" id="manualReceipt" type="button" data-i18n="btn.manualReceipt">Add manually</button>
+          </div>
+          <input type="file" id="receiptCam" class="cam" accept="image/*" capture="environment">
+          <div class="actions">
+            <span class="saved" id="savedFin"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div>
+        <div class="card">
+          <h2 data-i18n="fin.netSavings.title">Net savings</h2>
+          <div class="hero" id="finHero">
+            <div class="lbl" data-i18n="fin.hero.lbl">Income + balance − all spending</div>
+            <div class="big" id="hNet">¥0</div>
+            <div class="msg" id="hMsg" data-i18n="fin.hero.hint">Add income and expenses to see where you stand.</div>
+          </div>
+          <div class="finstats">
+            <div class="stat"><div class="k" data-i18n="fin.income.stat">Income</div><div class="v" id="fIncome">¥0</div></div>
+            <div class="stat"><div class="k" data-i18n="fin.totalSpend">Total spend</div><div class="v" id="fSpend">¥0</div></div>
+            <div class="stat"><div class="k" data-i18n="fin.cashOnHand">Cash on hand</div><div class="v" id="fCash">¥0</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="fin.cardUtil.title">Card utilisation</h2>
+          <div class="cards-wrap" id="cardBars"><div class="empty" data-i18n="fin.noCards">No cards yet.</div></div>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="fin.whereItGoes">Where it goes</h2>
+          <div class="export" style="margin-top:0">
+            <label class="f" for="finTxt" data-i18n="fin.export.label">Plain-text summary (copy to paste anywhere)</label>
+            <textarea id="finTxt" readonly style="height:150px"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer data-i18n="app.footer">Saved in the cloud · no build step · built for daily life in Tokyo</footer>
+</div>
+
+<!-- receipt confirm modal -->
+<div class="overlay" id="receiptModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <h2 id="rmTitle" data-i18n="receipt.title">Confirm receipt</h2>
+    <div class="hint" id="rmHint" data-i18n="receipt.hint">Check each line against the photo, fix anything off, then add.</div>
+    <img class="shot" id="rmShot" alt="Receipt photo">
+    <div class="daywin">
+      <div><label class="f" for="rmStore" data-i18n="label.store">Store</label><input id="rmStore" placeholder="e.g. Life, OK, Gyomu"></div>
+      <div><label class="f" data-i18n="label.paidWith2">Paid with</label><div id="rmPaidWrap"></div></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="draftrow" style="margin-bottom:4px">
+        <label class="f" data-i18n="label.item">Item</label><label class="f" data-i18n="label.qty">Qty</label><label class="f" data-i18n="label.eachYen">¥ each</label><label class="f" data-i18n="label.itemType">Type</label><span></span>
+      </div>
+      <div id="rmRows"></div>
+      <button class="add" id="rmAddRow" type="button" data-i18n="btn.addLine">+ Add line</button>
+    </div>
+    <div class="total-line"><span class="lab" data-i18n="receipt.total">Receipt total 税込</span><span class="amt" id="rmTotal">¥0</span></div>
+    <div class="actions">
+      <button class="btn primary" id="rmConfirm" type="button" data-i18n="btn.addToExpenses">Add to expenses</button>
+      <button class="btn ghost" id="rmCancel" type="button" data-i18n="btn.cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- recipe modal -->
+<div class="overlay" id="recipeModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recipeTitle">
+    <h2 id="recipeTitle">Recipe Name</h2>
+    <div class="hint" id="recipeSubtitle">Cuisine · serves 2</div>
+    <div style="margin-top:16px;">
+      <h3 style="font-size:14px; margin-bottom:8px;" data-i18n="recipe.ingredients">Ingredients</h3>
+      <ul id="recipeIngredients" style="font-size:14px; line-height:1.5; padding-left:20px; color:var(--text-secondary); margin-bottom:16px;"></ul>
+      <h3 style="font-size:14px; margin-bottom:8px;" data-i18n="recipe.instructions">Instructions</h3>
+      <ol id="recipeInstructions" style="font-size:14px; line-height:1.6; padding-left:20px; color:var(--text-secondary);"></ol>
+      <div id="recipeLinkWrap" style="margin-top:12px;" hidden>
+        <a id="recipeLink" href="#" target="_blank" style="color:var(--blue); font-size:14px; text-decoration:none; font-weight:600;" data-i18n="recipe.openLink">Open Original Recipe ↗</a>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="recipeClose" type="button" style="width:100%" data-i18n="btn.close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Select Menu (Global) -->
+<div id="customSelectMenu" class="c-sel-menu" hidden>
+  <div class="c-sel-list"></div>
+</div>
+
+<!-- Custom Time Picker (Global) — anchored below the field being edited -->
+<div class="time-pop" id="customTimePicker" hidden>
+  <div class="time-wheels">
+    <div class="time-col" id="timeHourCol"></div>
+    <div class="time-sep">:</div>
+    <div class="time-col" id="timeMinCol"></div>
+    <div class="time-highlight"></div>
+  </div>
+  <div class="actions time-actions">
+    <button class="btn ghost" id="timeCancelBtn" type="button" data-i18n="timepicker.cancel">Cancel</button>
+    <button class="btn primary" id="timeSaveBtn" type="button" data-i18n="timepicker.set">Set</button>
+  </div>
+</div>
+
+<!-- Canvas hidden by CSS now -->
+<canvas id="bg3d" aria-hidden="true"></canvas>
+
+<!-- local API key (git-ignored). Missing/empty = photo-as-reference mode. -->
+<script src="config.local.js"></script>
+<!-- Firebase config (git-ignored). Fill in with your project config. -->
+<script src="firebase-config.js"></script>
+<!-- Firebase SDK (CDN) -->
+<script type="module" src="js/app.js"></script>
+<!-- PWA: register the service worker (external file so CSP can forbid inline scripts) -->
+<script src="js/sw-register.js"></script>
+</body>
+</html>
