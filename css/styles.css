@@ -22,7 +22,7 @@
   --mint-deep: #1FAF63;
   --blue: #3B82F6;
   --blue-soft: #DBEAFE;
-  --amber: #F59E0B;
+  --amber: #E9CC5A;
   --amber-soft: #FEF3C7;
   --red: #EF4444;
   --red-soft: #FEE2E2;
@@ -49,7 +49,7 @@
   --meal: #E8880A;
   --study: #3B82F6;
   --project: #10B981;
-  --chore: #8B5CF6;
+  --chore: #C1BBE9;
 
   --readout-bg: var(--navy);
   --readout-text: #fff;
@@ -121,24 +121,34 @@ body {
   max-width: 1080px;
   margin: 0 auto;
   padding: 20px 20px 120px;
-  /* extra bottom padding for mobile tab bar */
 }
 
 /* ===== HEADER ===== */
 header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 14px 20px;
-  margin: 0 0 24px;
-  padding: 8px 0;
+  gap: 10px 16px;
+  margin: 0 0 28px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="dark"] header {
+  background: rgba(19, 30, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow-lg);
 }
 
 .brand {
-  flex: 1 1 50%;
-  /* 280px hard min-width overflows on ≤320px screens — clamp to viewport */
-  min-width: min(280px, 100%);
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -804,9 +814,9 @@ select:focus {
 }
 
 .iconbtn:hover {
-  color: var(--red);
-  border-color: var(--red-soft);
-  background: var(--red-soft);
+  color: var(--navy);
+  border-color: var(--mint);
+  background: var(--mint-soft);
 }
 
 .iconbtn:focus-visible {
@@ -1202,7 +1212,7 @@ select:focus {
 .warns {
   margin-top: 10px;
   font-size: 12.5px;
-  /* #F59E0B on white = ~2.2:1 (fail). Darken to #92400E (~9.1:1) which is
+  /* #E9CC5A on white = ~2.2:1 (fail). Darken to #92400E (~9.1:1) which is
      the same amber-brown already used in .tray ul — consistent and AA-safe. */
   color: #92400E;
 }
@@ -1286,10 +1296,7 @@ footer {
   background: var(--navy);
   border-radius: 100px;
   opacity: 0;
-  transition:
-    left 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
-    width 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.15s;
+  /* left/width/opacity animated by anime.js — no CSS transition here */
   pointer-events: none;
   z-index: 0;
 }
@@ -1666,7 +1673,7 @@ footer {
   max-width: 520px;
   box-shadow: var(--shadow-xl);
   padding: 22px;
-  animation: modalIn .35s cubic-bezier(.22, 1, .36, 1) both;
+  /* entrance animated by anime.js animateModal() */
 }
 
 .modal h2 {
@@ -2390,29 +2397,7 @@ footer {
 }
 
 /* ===== ANIMATIONS ===== */
-@keyframes cardIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* cardIn and modalIn replaced by anime.js staggerCards() / animateModal() */
 
 @keyframes ring {
   0% {
@@ -2426,21 +2411,7 @@ footer {
   }
 }
 
-section[id^="panel-"]:not([hidden]) {
-  animation: panelIn .4s cubic-bezier(.22, 1, .36, 1) both;
-}
-
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* panelIn replaced by anime.js animatePanel() */
 
 /* sheen on progress bars */
 .cardbar .fill,
@@ -2503,26 +2474,54 @@ section[id^="panel-"]:not([hidden]) {
 
 /* ===== MOBILE RESPONSIVENESS ===== */
 
-/* Collapse header readouts to a wrapping row on narrow screens */
+/* Collapse header on narrow screens */
 @media (max-width: 680px) {
-  /* Force brand to full width so header-right (avatar + readout) always
-     sits on its own second row — prevents the avatar from jumping to the
-     top-right corner on tabs that have no readout pill (Notes/Habits/Month). */
+  header {
+    gap: 8px 12px;
+    padding: 12px 14px;
+  }
+
+  /* Brand takes full row so h1 + icons don't squeeze */
   .brand {
     flex: 0 0 100%;
   }
 
+  /* Tighten icon gap and button size on mobile so all 5 icons fit */
+  .brand > div {
+    gap: 4px;
+  }
+
+  .brand .iconbtn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Hide tagline — too long for mobile header */
+  .brand p {
+    display: none;
+  }
+
+  .brand h1 {
+    font-size: 18px;
+    white-space: nowrap;
+  }
+
   .header-right {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
 
   .readout {
-    padding: 10px 14px;
+    padding: 8px 12px;
   }
 
   .readout .val {
-    font-size: 22px;
+    font-size: 20px;
   }
 }
 
@@ -2788,6 +2787,669 @@ section[id^="panel-"]:not([hidden]) {
   mix-blend-mode: normal;
 }
 
+/* ================================================================
+   PREMIUM REDESIGN v2 — Obsidian · Violet · Amber
+   Violet = interactive/navigation  |  Amber = KPI numbers
+   Green = success/positive only    |  Deep purple-black backgrounds
+   ================================================================ */
+
+/* ---- DARK MODE: obsidian purple-black + violet + amber ---- */
+:root[data-theme="dark"] {
+  /* Backgrounds — cool purple-black depth layers */
+  --bg:             #0E1119;
+  --bg-secondary:   #131720;
+  --bg-elevated:    #181D2B;
+  --border:         #252B3B;
+  --border-light:   #1E2335;
+
+  /* Text */
+  --text:           #E8EBF2;
+  --text-secondary: #9B94CA;
+  --text-muted:     #4C5261;
+
+  /* Success / positive stays emerald green */
+  --mint:           #22C55E;
+  --mint-soft:      rgba(34, 197, 94, 0.07);
+  --mint-deep:      #16A34A;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 4px rgba(0,0,0,.55);
+  --shadow-md:  0 4px 24px rgba(0,0,0,.6);
+  --shadow-lg:  0 8px 48px rgba(0,0,0,.7);
+  --shadow-xl:  0 24px 80px rgba(0,0,0,.8);
+
+  /* Readout uses amber for KPI numbers */
+  --readout-bg:   linear-gradient(145deg, #1A1F2E 0%, #131720 100%);
+  --readout-text: #E8EBF2;
+  --readout-sub:  #4C5261;
+  --glass-bg:     rgba(14, 17, 25, 0.93);
+}
+
+/* Light mode background lift (page ≠ card → depth) */
+:root {
+  --bg: #F1F5FA;
+  --bg-secondary: #E8EDF4;
+}
+
+/* ---- Aurora mesh — violet + indigo + amber glow spots ---- */
+[data-theme="dark"] body {
+  background: #0E1119;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 8%  0%,  rgba(193,187,233,0.10) 0%, transparent 52%),
+    radial-gradient(ellipse 55% 40% at 92% 12%, rgba(233,204,90,0.06)  0%, transparent 50%),
+    radial-gradient(ellipse 45% 35% at 48% 96%, rgba(120,163,215,0.06)  0%, transparent 48%);
+  background-attachment: fixed;
+}
+
+/* ---- Header — deep obsidian glass with violet hairline ---- */
+[data-theme="dark"] header {
+  background: rgba(14, 17, 25, 0.96) !important;
+  border-color: rgba(193,187,233,0.09) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.03) inset,
+    0 4px 40px rgba(0,0,0,.72),
+    0 0 0 1px rgba(0,0,0,.6) !important;
+}
+
+/* ---- Brand dot — violet pulse ---- */
+[data-theme="dark"] .brand .dot {
+  background: #C1BBE9 !important;
+  box-shadow:
+    0 0 14px rgba(193,187,233,0.78),
+    0 0 32px rgba(193,187,233,0.32) !important;
+  animation: dot-pulse 3s ease-in-out infinite;
+}
+@keyframes dot-pulse {
+  0%,100% { box-shadow: 0 0 14px rgba(193,187,233,0.78), 0 0 32px rgba(193,187,233,0.32); }
+  50%      { box-shadow: 0 0 24px rgba(193,187,233,0.98), 0 0 56px rgba(193,187,233,0.48); }
+}
+
+/* ---- Cards — obsidian depth + violet gradient veil ---- */
+[data-theme="dark"] .card {
+  background: #181D2B;
+  border-color: #252B3B;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.03) inset,
+    0 -1px 0 rgba(0,0,0,0.4) inset,
+    0 4px 24px rgba(0,0,0,.52),
+    0 1px 3px rgba(0,0,0,.38);
+}
+[data-theme="dark"] .card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(193,187,233,0.04) 0%,
+    transparent 45%,
+    rgba(233,204,90,0.02) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="dark"] .card > * { position: relative; z-index: 1; }
+[data-theme="dark"] .card:hover {
+  border-color: rgba(193,187,233,0.24) !important;
+  transform: translateY(-4px) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.05) inset,
+    0 8px 48px rgba(0,0,0,.62),
+    0 0 36px rgba(193,187,233,0.09),
+    0 2px 6px rgba(0,0,0,.48) !important;
+}
+
+/* ---- Tab indicator (mobile only — hidden on desktop) ---- */
+[data-theme="dark"] .tab-indicator {
+  background: #C1BBE9 !important;
+  box-shadow:
+    0 0 20px rgba(193,187,233,0.55),
+    0 0 50px rgba(193,187,233,0.22) !important;
+}
+[data-theme="dark"] .tab[aria-selected="true"] { color: #fff; }
+
+/* ---- Readout — obsidian gradient + AMBER KPI numbers ---- */
+[data-theme="dark"] .readout {
+  background: linear-gradient(145deg, #1A1F2E 0%, #131720 100%) !important;
+  border: 1px solid rgba(193,187,233,0.13) !important;
+  box-shadow:
+    0 4px 20px rgba(0,0,0,.52),
+    inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+[data-theme="dark"] .readout:hover {
+  border-color: rgba(193,187,233,0.3) !important;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.62),
+    0 0 32px rgba(193,187,233,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.05) !important;
+  transform: translateY(-3px) !important;
+}
+[data-theme="dark"] .readout .val {
+  color: #E9CC5A !important;
+  text-shadow: 0 0 22px rgba(233,204,90,0.52) !important;
+}
+
+/* ---- Primary button — violet gradient ---- */
+[data-theme="dark"] .btn.primary {
+  background: linear-gradient(135deg, #C1BBE9 0%, #9488D4 100%) !important;
+  color: #fff !important;
+  box-shadow:
+    0 4px 20px rgba(193,187,233,0.42),
+    0 0 40px rgba(193,187,233,0.14) !important;
+}
+[data-theme="dark"] .btn.primary:hover {
+  box-shadow:
+    0 6px 28px rgba(193,187,233,0.55),
+    0 0 60px rgba(193,187,233,0.22) !important;
+}
+
+/* ---- Date nav bar ---- */
+[data-theme="dark"] .date-nav-bar {
+  background: rgba(14, 17, 25, 0.94) !important;
+  border-color: rgba(193,187,233,0.08) !important;
+  box-shadow: 0 2px 20px rgba(0,0,0,.5) !important;
+}
+
+/* ---- Stat KPI numbers — amber ---- */
+[data-theme="dark"] .stat .v { color: #E9CC5A !important; }
+[data-theme="dark"] .stat .k { color: #4C5261; }
+
+/* ---- Card section labels ---- */
+[data-theme="dark"] .card h2 { color: #4C5261; }
+[data-theme="dark"] .card h2 .n {
+  background: rgba(193,187,233,0.08);
+  border-color: rgba(193,187,233,0.15);
+  color: #C1BBE9;
+}
+
+/* ---- Today day card ---- */
+[data-theme="dark"] .daycard.today {
+  border-color: rgba(193,187,233,0.35) !important;
+  box-shadow:
+    0 0 0 1px rgba(193,187,233,0.10),
+    0 0 30px rgba(193,187,233,0.09) !important;
+}
+
+/* ---- Input rows ---- */
+[data-theme="dark"] .row {
+  background: rgba(14, 17, 25, 0.72);
+  border-color: #252B3B;
+}
+[data-theme="dark"] .row:hover {
+  border-color: rgba(193,187,233,0.24) !important;
+  box-shadow: 0 0 20px rgba(193,187,233,0.05) !important;
+}
+
+/* ---- Day-of-week picker — violet active ---- */
+[data-theme="dark"] .dow.on {
+  background: #C1BBE9 !important;
+  border-color: #C1BBE9 !important;
+  color: #fff !important;
+  box-shadow: 0 0 14px rgba(193,187,233,0.5) !important;
+}
+
+/* ---- Habit tracker — SUCCESS green (semantically correct) ---- */
+[data-theme="dark"] .habit-check.done {
+  background: #22C55E !important;
+  border-color: #22C55E !important;
+  color: #0E1119 !important;
+  box-shadow: 0 0 14px rgba(34,197,94,0.4) !important;
+}
+[data-theme="dark"] .habit-dot.done { background: #22C55E !important; }
+
+/* ---- Progress bars — violet for progress, green for break/success ---- */
+[data-theme="dark"] .cardbar .fill:not(.warn):not(.bad) {
+  background: #C1BBE9 !important;
+  box-shadow: 0 0 10px rgba(193,187,233,0.45) !important;
+}
+[data-theme="dark"] .pomo-progress-bar:not(.break) {
+  background: #C1BBE9 !important;
+  box-shadow: 0 0 10px rgba(193,187,233,0.45) !important;
+}
+[data-theme="dark"] .pomo-progress-bar.break { background: #22C55E !important; }
+[data-theme="dark"] .pomo-display.running { color: #818CF8 !important; }
+[data-theme="dark"] .pomo-display.break {
+  color: #22C55E !important;
+  text-shadow: 0 0 20px rgba(34,197,94,0.4) !important;
+}
+
+/* ---- Month today circle ---- */
+[data-theme="dark"] .month-day.today .date-num {
+  background: #C1BBE9 !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(193,187,233,0.5) !important;
+}
+[data-theme="dark"] .month-day:hover { background: rgba(193,187,233,0.03); }
+[data-theme="dark"] .cal-add-btn:hover {
+  background: #C1BBE9 !important;
+  color: #fff !important;
+}
+
+/* ---- Icon buttons ---- */
+[data-theme="dark"] .iconbtn {
+  background: rgba(30,26,52,0.55);
+  border-color: #252B3B;
+}
+[data-theme="dark"] .iconbtn:hover {
+  background: rgba(193,187,233,0.13) !important;
+  border-color: rgba(193,187,233,0.32) !important;
+  color: #D4D0F0 !important;
+}
+
+/* ---- Modal ---- */
+[data-theme="dark"] .modal {
+  background: #181D2B;
+  border-color: rgba(193,187,233,0.11);
+  box-shadow: 0 24px 80px rgba(0,0,0,.88), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+[data-theme="dark"] .overlay {
+  background: rgba(14, 17, 25, 0.78) !important;
+}
+
+/* ---- Recipe rows ---- */
+[data-theme="dark"] .recipe { background: rgba(14,17,25,0.72); border-color: #252B3B; }
+[data-theme="dark"] .recipe:hover { border-color: rgba(193,187,233,0.24); }
+[data-theme="dark"] .recipe.picked {
+  border-color: rgba(193,187,233,0.38) !important;
+  background: rgba(193,187,233,0.06) !important;
+}
+
+/* ---- Verdict / success banner ---- */
+[data-theme="dark"] .verdict.ok {
+  background: rgba(34,197,94,0.08);
+  color: #22C55E;
+  border: 1px solid rgba(34,197,94,0.16);
+}
+
+/* ---- Finance hero card ---- */
+[data-theme="dark"] .hero {
+  background: linear-gradient(135deg, #1A1F2E 0%, #131720 100%);
+  border: 1px solid rgba(193,187,233,0.1);
+}
+[data-theme="dark"] .hero.ok .big {
+  color: #22C55E !important;
+  text-shadow: 0 0 24px rgba(34,197,94,0.4);
+}
+
+/* ---- Add button ---- */
+[data-theme="dark"] .add:hover {
+  background: rgba(193,187,233,0.08) !important;
+  border-color: rgba(193,187,233,0.32) !important;
+  color: #D4D0F0 !important;
+}
+
+/* ---- Focus rings — violet ---- */
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus {
+  border-color: rgba(193,187,233,0.48) !important;
+  box-shadow: 0 0 0 3px rgba(193,187,233,0.13) !important;
+}
+[data-theme="dark"] .c-sel:focus-visible,
+[data-theme="dark"] .c-time:focus-visible,
+[data-theme="dark"] .c-date:focus-visible {
+  border-color: rgba(193,187,233,0.48) !important;
+  box-shadow: 0 0 0 4px rgba(193,187,233,0.13) !important;
+  outline: none !important;
+}
+
+/* ---- Note editor ---- */
+[data-theme="dark"] .note-editor {
+  background: rgba(14,17,25,0.82); border-color: #252B3B; color: #E8EBF2;
+}
+[data-theme="dark"] .note-editor:focus {
+  border-color: rgba(193,187,233,0.38);
+  box-shadow: 0 0 0 3px rgba(193,187,233,0.11);
+}
+
+/* ---- Scrollbar ---- */
+[data-theme="dark"] ::-webkit-scrollbar { width: 6px; height: 6px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #252B3B; border-radius: 3px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(193,187,233,0.3); }
+
+/* ---- Misc ---- */
+[data-theme="dark"] .row.drag-over { outline-color: rgba(193,187,233,0.45) !important; }
+[data-theme="dark"] .chip { background: rgba(30,26,52,0.55); border-color: #252B3B; }
+[data-theme="dark"] .login-page {
+  background: #0E1119 !important;
+  background-image:
+    radial-gradient(ellipse 80% 55% at 20% 20%, rgba(193,187,233,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 45% at 80% 80%, rgba(233,204,90,0.05) 0%, transparent 50%) !important;
+}
+[data-theme="dark"] .login-card {
+  background: #181D2B !important;
+  border-color: rgba(193,187,233,0.11) !important;
+  box-shadow: 0 20px 70px rgba(0,0,0,.82), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+
+/* ---- Light mode: cards lift above off-white page ---- */
+.card { background: #FFFFFF; }
+
+/* ---- 3D tilt on hover ---- */
+@media (hover: hover) {
+  .card {
+    transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s ease;
+    will-change: transform;
+  }
+  .card:hover {
+    transform: translateY(-5px) perspective(800px) rotateX(1.5deg);
+    box-shadow: var(--shadow-xl), 0 0 0 1px rgba(193,187,233,0.08);
+  }
+}
+
+/* ====  Reduced-motion guard (keep existing rule's !important-free semantics) ==== */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="dark"] .brand .dot { animation: none !important; }
+  [data-theme="dark"] .card:hover { transform: none !important; }
+  .card:hover { transform: none !important; }
+}
+
+/* ================================================================
+   LAYOUT v2 — Desktop sidebar + UX improvements
+   ================================================================ */
+
+/* Card needs position: relative for ::before gradient veil */
+.card { position: relative; overflow: hidden; }
+
+/* ======= DESKTOP SIDEBAR — 64 px icon-only rail (≥ 1024 px) ======= */
+@media (min-width: 1024px) {
+
+  /* ── Rail shell ── */
+  .tabs {
+    position: fixed !important;
+    left: 0 !important; top: 0 !important; bottom: 0 !important;
+    right: auto !important;
+    width: 64px !important;
+    max-width: 64px !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    border-radius: 0 !important;
+    padding: 20px 0 24px !important;
+    transform: none !important;
+    gap: 4px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: var(--bg-elevated) !important;
+    border: none !important;
+    border-right: 1px solid var(--border) !important;
+    box-shadow: 1px 0 24px rgba(0,0,0,0.08) !important;
+    scrollbar-width: none !important;
+  }
+  .tabs::-webkit-scrollbar { display: none !important; }
+
+  /* ── Brand icon dot at top ── */
+  .tabs::before {
+    content: '' !important;
+    display: block !important;
+    width: 30px !important;
+    height: 30px !important;
+    background: var(--mint) !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+    margin-bottom: 16px !important;
+    box-shadow: 0 0 16px rgba(193,187,233,0.45) !important;
+    background: #C1BBE9 !important;
+  }
+
+  /* ── Hide animated pill indicator ── */
+  #tabIndicator { display: none !important; }
+
+  /* ── Each tab = 44×44 centered icon button ── */
+  .tab {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    flex-shrink: 0 !important;
+    color: var(--text-muted) !important;
+    transition: background .15s ease, color .15s ease, transform .15s ease !important;
+    position: relative !important;
+  }
+
+  /* ── Tooltip on hover ── */
+  .tab::after {
+    content: attr(aria-label) !important;
+    position: absolute !important;
+    left: calc(100% + 14px) !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: var(--text) !important;
+    color: var(--bg) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    padding: 5px 10px !important;
+    border-radius: 7px !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    transition: opacity .15s ease !important;
+    z-index: 9999 !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18) !important;
+  }
+  .tab:hover::after { opacity: 1 !important; }
+
+  /* ── Icon size ── */
+  .tab svg { width: 20px !important; height: 20px !important; }
+
+  /* ── Hide text labels ── */
+  .tab .tab-label {
+    display: none !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* ── Idle hover ── */
+  .tab:not([aria-selected="true"]):hover {
+    background: var(--bg-secondary) !important;
+    color: var(--text) !important;
+    transform: none !important;
+  }
+
+  /* ── Active state: violet pill background, white icon ── */
+  .tab[aria-selected="true"] {
+    background: rgba(193,187,233,0.15) !important;
+    color: #C1BBE9 !important;
+    box-shadow: none !important;
+    font-weight: 700 !important;
+  }
+  .tab[aria-selected="true"] svg {
+    filter: drop-shadow(0 0 6px rgba(193,187,233,0.6)) !important;
+  }
+
+  /* ── Content area offset ── */
+  .wrap {
+    margin-left: 64px !important;
+    max-width: none !important;
+    padding: 20px 32px 60px !important;
+  }
+
+  /* ── Sticky header ── */
+  header {
+    position: sticky !important;
+    top: 12px !important;
+    z-index: 50 !important;
+  }
+
+  .grid { gap: 24px !important; }
+  .date-nav-bar { margin-top: 0 !important; }
+  .fab { right: 40px !important; }
+}
+
+/* ---- Dark rail overrides ---- */
+@media (min-width: 1024px) {
+  [data-theme="dark"] .tabs {
+    background: rgba(14, 17, 25, 0.98) !important;
+    border-right-color: rgba(193,187,233,0.09) !important;
+    box-shadow: 1px 0 40px rgba(0,0,0,0.65) !important;
+  }
+
+  [data-theme="dark"] .tabs::before {
+    background: #C1BBE9 !important;
+    box-shadow: 0 0 20px rgba(193,187,233,0.55) !important;
+  }
+
+  [data-theme="dark"] .tab { color: #4C5261 !important; }
+
+  [data-theme="dark"] .tab:not([aria-selected="true"]):hover {
+    background: rgba(30,26,52,0.6) !important;
+    color: #D4D0F0 !important;
+    transform: none !important;
+  }
+
+  [data-theme="dark"] .tab[aria-selected="true"] {
+    background: rgba(193,187,233,0.15) !important;
+    color: #D4D0F0 !important;
+  }
+
+  [data-theme="dark"] .tab::after {
+    background: #E8EBF2 !important;
+    color: #0E1119 !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.55) !important;
+  }
+}
+
+/* ======= MOBILE TAB FIX — icon-only, no pill-label expand ======= */
+@media (max-width: 1023px) {
+  /* Kill the label slide-in on active tab */
+  .tab-label { display: none !important; }
+
+  /* Don't let active tab expand into a wide pill */
+  .tab[aria-selected="true"] {
+    width: 44px !important;
+    border-radius: 14px !important;
+    padding: 0 !important;
+  }
+
+  /* Indicator: subtle circle behind active icon, no glow */
+  .tab-indicator {
+    border-radius: 14px !important;
+    width: 44px !important;
+  }
+
+  /* Dark mode: toned-down indicator (no aggressive violet glow on mobile) */
+  [data-theme="dark"] .tab-indicator {
+    background: rgba(193,187,233,0.22) !important;
+    box-shadow: none !important;
+  }
+
+  /* Active tab icon gets violet tint in dark mode */
+  [data-theme="dark"] .tab[aria-selected="true"] {
+    color: #D4D0F0 !important;
+    background: transparent !important;
+  }
+
+  /* Light mode active indicator */
+  [data-theme="light"] .tab-indicator,
+  :root:not([data-theme="dark"]) .tab-indicator {
+    background: rgba(193,187,233,0.12) !important;
+  }
+  [data-theme="light"] .tab[aria-selected="true"],
+  :root:not([data-theme="dark"]) .tab[aria-selected="true"] {
+    color: #9488D4 !important;
+    background: transparent !important;
+  }
+}
+
+/* ---- Light mode desktop rail — teal accents ---- */
+@media (min-width: 1024px) {
+  :root:not([data-theme="dark"]) .tabs::before {
+    background: #0D9488 !important;
+    box-shadow: 0 0 16px rgba(13,148,136,0.42) !important;
+  }
+  :root:not([data-theme="dark"]) .tab[aria-selected="true"] {
+    background: rgba(13,148,136,0.12) !important;
+    color: #0D9488 !important;
+  }
+  :root:not([data-theme="dark"]) .tab[aria-selected="true"] svg {
+    filter: drop-shadow(0 0 5px rgba(13,148,136,0.55)) !important;
+  }
+  :root:not([data-theme="dark"]) .tab::after {
+    background: #0F172A !important;
+    color: #EFF6FF !important;
+  }
+  :root:not([data-theme="dark"]) .tab:not([aria-selected="true"]):hover {
+    color: #0D9488 !important;
+    background: rgba(13,148,136,0.07) !important;
+  }
+}
+
+/* ======= IMPROVE LIGHT MODE — Arctic Mist + Teal ======= */
+
+/* Arctic blue-tinted white page background */
+:root { --bg: #EFF6FF; }
+
+/* Cards pure white on cool background */
+.card { background: #FFFFFF; }
+
+/* Light mode teal accent overrides */
+:root:not([data-theme="dark"]) {
+  --mint:      #0D9488;
+  --mint-soft: rgba(13,148,136,0.08);
+  --mint-deep: #0F766E;
+}
+
+/* Stronger shadows with teal tint on hover */
+.card:hover {
+  box-shadow:
+    0 12px 40px rgba(15,118,110,0.12),
+    0 2px 8px rgba(15,118,110,0.06),
+    0 0 0 1px rgba(13,148,136,0.10) !important;
+}
+
+/* Light mode active tab/indicator: teal */
+:root:not([data-theme="dark"]) .tab[aria-selected="true"] { color: #0D9488; }
+:root:not([data-theme="dark"]) .tab-indicator { background: #0D9488; }
+
+/* Light mode KPI stat value: ocean blue */
+:root:not([data-theme="dark"]) .readout .val { color: #0369A1 !important; }
+:root:not([data-theme="dark"]) .stat .v      { color: #0369A1 !important; }
+
+/* ======= SHARED UX IMPROVEMENTS ======= */
+
+/* Stat cards: stronger label hierarchy */
+.stat .k {
+  font-size: 9px;
+  letter-spacing: .16em;
+}
+.stat .v {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Timeline block text: slightly larger for legibility */
+.blk .nm { font-size: 13px; }
+
+/* Week day card: more spacious */
+.daycard { padding: 16px 18px; }
+
+/* Section number badges */
+.card h2 .n {
+  font-size: 10px;
+  padding: 1px 7px;
+}
+
+/* Habit heatmap dots: slightly larger */
+.habit-dot { width: 12px; height: 12px; border-radius: 4px; }
+
+/* Better empty states */
+.empty { padding: 36px 12px; font-size: 14px; }
+
+/* Smoother row transitions */
+.row { transition: border-color .2s ease, box-shadow .2s ease, background .2s ease; }
+
+/* Progress bar track: more visible */
+.cardbar .track { height: 6px; }
+
+/* Month grid: stronger cell borders */
+.month-grid { gap: 2px; }
+.month-day { min-height: 88px; padding: 6px; }
+
 /* ── Active tab label (slides in beside icon) ───────────── */
 .tab-label {
   font-size: 11px;
@@ -2815,14 +3477,7 @@ section[id^="panel-"]:not([hidden]) {
   width: auto;
 }
 
-/* ── Panel enter animation ───────────────────────────────── */
-@keyframes panelFadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.panel-enter {
-  animation: panelFadeUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
+/* Panel enter handled by anime.js animatePanel() */
 
 /* ── Drag-to-reorder ─────────────────────────────────────── */
 .drag-handle {
@@ -3042,7 +3697,7 @@ section[id^="panel-"]:not([hidden]) {
 @media print {
   body { background: #fff !important; color: #000 !important; }
   .tabs, .tab-indicator, header .brand p, .actions, .add, footer,
-  #exportWrap, #customSelectMenu, #customDatePicker, #customTimePicker,
+  #dateNavBar, #exportWrap, #customSelectMenu, #customDatePicker, #customTimePicker,
   .pomo-wrap, .notif-banner, #panel-notes, #panel-habits,
   #panel-shopping, #panel-week, #panel-month, #panel-meals,
   #panel-finance { display: none !important; }
@@ -3060,4 +3715,39 @@ section[id^="panel-"]:not([hidden]) {
   .tab  { width: 36px; height: 36px; }
   .tab[aria-selected="true"] { padding: 0 10px; }
   .tab-indicator { top: 4px; height: calc(100% - 8px); }
+}
+
+/* ── Unified date navigation bar ──────────────────────────── */
+.date-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.date-nav-bar .nav-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+.date-nav-bar .date-nav-btn {
+  font-size: 22px;
+  padding: 0 10px;
+  line-height: 1;
+  min-width: 36px;
+}
+
+@media (max-width: 680px) {
+  .date-nav-bar { padding: 4px 8px; gap: 4px; }
+  .date-nav-bar .nav-label { font-size: 13px; }
+  .date-nav-bar .date-nav-btn { font-size: 18px; padding: 0 6px; }
 }

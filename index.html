@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#2BD47D">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/styles.css?v=1.9">
+<link rel="stylesheet" href="css/styles.css?v=3.4">
 </head>
 <body>
 
@@ -112,6 +112,22 @@
     </button>
   </div>
 
+  <!-- Unified date navigation — visible on Day / Week / Month tabs only -->
+  <div id="dateNavBar" class="date-nav-bar" hidden>
+    <button class="btn ghost date-nav-btn" id="navPrev" type="button" aria-label="Previous period">&#8249;</button>
+    <span id="navLabel" class="nav-label"></span>
+    <button class="btn ghost date-nav-btn" id="navNext" type="button" aria-label="Next period">&#8250;</button>
+    <div class="lang-menu" id="navExportMenu">
+      <button class="btn ghost" id="navExportBtn" type="button" aria-haspopup="true" aria-expanded="false">🗓️ Export</button>
+      <div class="dropdown-content" id="navExportDropdown">
+        <button class="dropdown-btn" id="navExportDay" type="button">📅 Day (.ics)</button>
+        <button class="dropdown-btn" id="navExportWeek" type="button">🗓️ Week (.ics)</button>
+        <button class="dropdown-btn" id="navExportMonth" type="button">📆 Month (.ics)</button>
+        <button class="dropdown-btn" id="navExportText" type="button">📋 Copy day plan text</button>
+      </div>
+    </div>
+  </div>
+
   <section id="panel-schedule">
   <div class="grid">
     <!-- INPUT -->
@@ -198,11 +214,6 @@
         <div id="tray"></div>
         <div id="warns"></div>
         <div class="export" id="exportWrap" style="display:none">
-
-          <div class="calrow">
-            <button class="btn ghost" id="exportCalBtn" type="button">📅 Export to calendar (.ics)</button>
-            <span class="finehint">Works with Google, Apple/iPhone &amp; Samsung calendars</span>
-          </div>
           <label class="f" for="exportTxt" data-i18n="export.dayLabel">Plain-text plan (copy to paste anywhere)</label>
           <textarea id="exportTxt" readonly></textarea>
         </div>
@@ -278,7 +289,6 @@
           <div id="wVerdict"></div>
           <div class="actions" style="display:flex; gap:12px; align-items:center;">
             <button class="btn primary" id="planWeek" type="button" data-i18n="btn.planWeek">Plan my week</button>
-            <button class="btn ghost" id="exportWeekBtn" type="button" aria-label="Export week to calendar">🗓️ Export Week</button>
           </div>
           <div id="wTray"></div>
         </div>
@@ -309,14 +319,7 @@
     <div class="grid">
       <div style="grid-column: 1 / -1;">
         <div class="card" style="min-height: 500px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <button class="btn ghost" id="prevMonth" type="button" style="font-size:24px; padding:0 12px;">&lsaquo;</button>
-            <div style="display:flex; align-items:center; gap:16px;">
-              <h2 id="monthTitle" style="margin:0; font-size:20px; text-transform:uppercase; letter-spacing:1px; color:var(--text);">Month Year</h2>
-              <button class="btn ghost" id="exportMonthBtn" type="button" title="Export Month" style="padding:4px 8px; font-size:16px;">🗓️ Export Month</button>
-            </div>
-            <button class="btn ghost" id="nextMonth" type="button" style="font-size:24px; padding:0 12px;">&rsaquo;</button>
-          </div>
+          <span id="monthTitle" hidden></span>
           <div class="hint" style="text-align:center; margin-bottom: 24px;">Click any day to jump to the Day Planner for that specific date. Specific events (parties, holidays) are shown as pills.</div>
           <div id="monthGrid" class="month-grid"></div>
         </div>

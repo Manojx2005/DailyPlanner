@@ -3,7 +3,7 @@
    Pure module: no DOM access. Japan's reduced rate is 8% on food/drink,
    10% on everything else (alcohol, household goods, etc.). */
 
-import { getLang, t, getCurrency } from "./i18n.js?v=1.6";
+import { getLang, t, getCurrency } from "./i18n.js?v=1.7";
 
 const TAX={food:0.08,other:0.10};
 

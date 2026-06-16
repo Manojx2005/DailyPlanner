@@ -6,7 +6,6 @@
  *   buildICS(events, opts)        → iCalendar string
  *   timelineToEvents(timeline, baseDate) → event objects from schedule blocks
  *   downloadICS(filename, icsString)     → triggers browser download
- *   googleCalendarUrl(event)             → Google Calendar quick-add URL
  *
  * Design decisions:
  *
@@ -282,36 +281,3 @@ export function downloadICS(filename, icsString) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Build a Google Calendar "quick add" URL for a single event.
- *
- * Opens Google Calendar's event creation form pre-filled with the event's
- * details. Useful as a fallback for users who prefer clicking a link over
- * importing a file.
- *
- * URL format:
- *   https://calendar.google.com/calendar/render?action=TEMPLATE
- *     &text=<title>
- *     &dates=<YYYYMMDDTHHMMSS>/<YYYYMMDDTHHMMSS>
- *     &details=<description>
- *     &location=<location>
- *
- * Note: Google Calendar interprets dates without a timezone as UTC when
- * provided via the URL, so for accurate local time the caller should be
- * aware the displayed time may shift unless the user's Google Calendar
- * timezone matches their device timezone. For most users they will match.
- *
- * @param {{title:string, start:Date, end:Date, description?:string, location?:string}} event
- * @returns {string}  — absolute URL
- */
-export function googleCalendarUrl(event) {
-  const base = "https://calendar.google.com/calendar/render";
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text:   event.title,
-    dates:  `${fmtDT(event.start)}/${fmtDT(event.end)}`,
-  });
-  if (event.description) params.set("details",  event.description);
-  if (event.location)    params.set("location", event.location);
-  return `${base}?${params.toString()}`;
-}
