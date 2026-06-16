@@ -3,7 +3,7 @@
    Spring-physics animations for cards, panels, tab indicator, and modals.
    All guarded by prefers-reduced-motion. */
 
-import anime from 'https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.es.js';
+import anime from './vendor/anime.es.js';
 
 const reduce = () => window.matchMedia?.("(prefers-reduced-motion:reduce)").matches;
 
