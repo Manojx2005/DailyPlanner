@@ -403,59 +403,65 @@ function onAiJsonUpload(e){
   reader.readAsText(file);
 }
 
-/* ---------- receipt AI helpers ---------- */
+/* ---------- receipt scanner (OpenRouter Vision — free tier) ---------- */
 function fileToBase64(file){
-  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result.split(",")[1]);
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
 }
 
-async function scanReceiptWithGemini(key,base64,mimeType){
-  const prompt=`You are a receipt parser. Extract all purchased line items from this receipt image.
-Return ONLY a valid JSON array with no markdown or explanation.
-Schema: [{"name":"item name","qty":1,"price":198,"cat":"food"}]
+async function scanReceipt(file){
+  const key=window.OPENROUTER_API_KEY;
+  if(!key||key==="PASTE_NEW_KEY_HERE")throw new Error("No OpenRouter API key — add window.OPENROUTER_API_KEY to config.local.js");
+
+  const base64=await fileToBase64(file);
+  const mime=file.type||"image/jpeg";
+
+  const resp=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+    method:"POST",
+    headers:{
+      "Authorization":`Bearer ${key}`,
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+      model:"google/gemma-4-31b-it:free",
+      messages:[{
+        role:"user",
+        content:[
+          {type:"image_url",image_url:{url:`data:${mime};base64,${base64}`}},
+          {type:"text",text:`You are a receipt scanner. Extract all purchased items from this receipt image.
+Return ONLY a JSON object with no markdown formatting:
+{"store":"store or restaurant name (empty string if unclear)","items":[{"name":"item name in original language","price":0}]}
 Rules:
-- price = unit price as a plain number (no currency symbol, no commas)
-- qty = integer (default 1)
-- cat = "food" for food/drink, "other" for alcohol or non-food items
-- Exclude totals, taxes, subtotals, discounts, store name, and payment info`;
-  const resp=await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`,
-    {method:"POST",headers:{"Content-Type":"application/json"},
-     body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:mimeType||"image/jpeg",data:base64}}]}]})}
-  );
+- price must be a whole number in yen (integer, no ¥ sign, no decimals)
+- Include ONLY individual purchased items
+- Exclude: totals, subtotals, taxes, service charges, discounts, change, cash tendered, points, coupons
+- Keep Japanese item names in Japanese`}
+        ]
+      }],
+      temperature:0
+    })
+  });
+
   if(!resp.ok){
-    const errBody=await resp.json().catch(()=>({}));
-    const msg=errBody.error?.message||resp.statusText;
-    throw new Error(resp.status===429?`Rate limited — wait a moment and try again.`:`Gemini error ${resp.status}: ${msg}`);
+    const err=await resp.json().catch(()=>({}));
+    throw new Error(`OpenRouter ${resp.status}: ${err?.error?.message||resp.statusText}`);
   }
+
   const data=await resp.json();
-  const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||"[]";
-  return JSON.parse(raw.replace(/```json?\n?/g,"").replace(/```/g,"").trim());
-}
+  const raw=(data.choices?.[0]?.message?.content||"").trim();
+  const json=raw.replace(/^```(?:json)?\s*/,"").replace(/\s*```$/,"");
+  const parsed=JSON.parse(json);
 
-/* Parse raw TextDetector blocks: lines ending in a number are treated as price lines. */
-function parseReceiptText(blocks){
-  const priceRe=/(?:[¥$€£]\s?)?(\d[\d,\.]+)\s*[円¥]?\s*$/;
-  const items=[];
-  for(const b of blocks){
-    const line=(b.rawValue||"").trim();
-    const m=line.match(priceRe);
-    if(!m)continue;
-    const price=parseFloat(m[1].replace(/,/g,""));
-    if(!price||price>99999)continue;
-    const name=line.slice(0,m.index).trim();
-    if(!name)continue;
-    items.push({name,qty:1,price:Math.round(price),cat:"food"});
-  }
-  return items;
-}
+  const store=String(parsed.store||"").trim();
+  const items=(parsed.items||[])
+    .filter(it=>it.name&&Number(it.price)>=10)
+    .map(it=>({name:String(it.name).trim(),qty:1,price:Math.round(Number(it.price)),cat:"food"}));
 
-async function scanReceiptNative(blob){
-  if(!("TextDetector" in window))return null;
-  const td=new window.TextDetector();
-  const bmp=await createImageBitmap(blob);
-  const blocks=await td.detect(bmp);
-  bmp.close();
-  return parseReceiptText(blocks);
+  return{store,items};
 }
 
 async function onPhoto(e){
@@ -465,26 +471,26 @@ async function onPhoto(e){
   const shot=$("rmShot");shot.src=draft.photoURL;shot.classList.add("has");
   e.target.value="";
 
-  const key=window.GEMINI_API_KEY;
-  const hasNative="TextDetector" in window;
-  if(!key&&!hasNative){
-    const hint=$("rmHint");
-    if(hint)hint.textContent="Photo shown for reference — type items below. (Add a Gemini key to config.local.js for auto-scan.)";
-    return;
-  }
-
-  $("rmRows").innerHTML=`<div class="scan-loading">🔍 Reading receipt…</div>`;
+  $("rmRows").innerHTML=`<div class="scan-loading">⏳ Starting OCR engine…</div>`;
   $("rmTotal").textContent=yen(0);
+  const hint=$("rmHint");
+  if(hint)hint.textContent="";
 
-  let items=null;
-  let scanErr=null;
+  let result=null,scanErr=null;
   try{
-    items=key
-      ? await scanReceiptWithGemini(key,(await fileToBase64(file)),file.type)
-      : await scanReceiptNative(file);
+    result=await scanReceipt(file);
   }catch(err){
     console.error("Receipt scan failed:",err);
     scanErr=err.message||"Scan failed";
+  }
+
+  const items=result?.items;
+  const store=result?.store||"";
+
+  // Populate store field if it's currently empty and we detected one
+  if(store&&!$("rmStore").value.trim()){
+    $("rmStore").value=store;
+    draft.store=store;
   }
 
   if(items&&items.length){
@@ -494,11 +500,9 @@ async function onPhoto(e){
       price:Number(it.price)||0,
       cat:it.cat==="other"?"other":"food"
     }));
-    const hint=$("rmHint");
     if(hint)hint.textContent="Check each line against the photo, fix anything off, then add.";
   }else{
     draft.items=[{name:"",qty:1,price:0,cat:"food"}];
-    const hint=$("rmHint");
     if(hint)hint.textContent=scanErr||"Couldn't auto-read this receipt — fill in items below.";
   }
   renderDraft();

@@ -4,13 +4,13 @@
    Cache name: bump the version string to force a cache refresh.
    ============================================================ */
 
-const CACHE_NAME = "dayplanner-v11";
+const CACHE_NAME = "dayplanner-v16";
 
 const APP_SHELL = [
   "./",
   "./index.html",
   "./css/styles.css?v=1.9",
-  "./js/app.js?v=2.0",
+  "./js/app.js?v=2.4",
   "./js/auth.js?v=1.6",
   "./js/calendar.js?v=1.6",
   "./js/finance.js?v=1.6",
@@ -63,22 +63,19 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/* ── fetch: cache-first for same-origin, network-only for cross-origin ── */
+/* ── fetch: cache-first for same-origin; lazy-cache Tesseract CDN assets ── */
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
   // Only intercept GET requests.
   if (event.request.method !== "GET") return;
 
-  // Cross-origin requests (Firebase, Google Fonts, CDNs) — pass straight through.
+  // All cross-origin requests (Firebase, OpenRouter, Google Fonts, etc.) — pass through.
   if (url.origin !== self.location.origin) return;
 
-  // Navigations (the HTML document) — network-first so new markup, asset refs,
-  // and the CSP are always picked up immediately; fall back to cache when offline.
+  // Navigations (the HTML document) — network-first so new markup and CSP are picked up.
   if (event.request.mode === "navigate" || event.request.destination === "document") {
     event.respondWith(
-      // {cache:"no-store"} skips the browser HTTP cache so GitHub Pages' ~10-min
-      // file caching can't keep serving a stale index.html that points at old assets.
       fetch(event.request, { cache: "no-store" })
         .then((fresh) => {
           if (fresh && fresh.ok) {
@@ -115,7 +112,6 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       } catch (err) {
-        // Offline and not cached — nothing we can do.
         console.warn("[SW] Network and cache miss:", event.request.url);
         return new Response("Offline — resource not cached.", {
           status: 503,

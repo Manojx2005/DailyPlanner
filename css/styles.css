@@ -1705,9 +1705,9 @@ footer {
 
 .draftrow {
   display: grid;
-  /* fixed 56px+84px columns compress on narrow modals — use minmax so they can
-     shrink on ≤380px while still defaulting to their intended size */
-  grid-template-columns: 1fr minmax(44px, 56px) minmax(68px, 84px) auto auto;
+  /* Cols 4+5 are fixed so header labels and data-row controls share identical
+     widths across separate grid instances (auto would size each independently). */
+  grid-template-columns: 1fr minmax(44px, 56px) minmax(68px, 84px) minmax(90px, 110px) 38px;
   gap: 7px;
   align-items: end;
   margin-bottom: 8px;
