@@ -3217,7 +3217,7 @@ footer {
 }
 
 /* Light mode active tab/indicator: teal */
-:root:not([data-theme="dark"]) .tab[aria-selected="true"] { color: #0D9488; }
+:root:not([data-theme="dark"]) .tab[aria-selected="true"] { color: #fff; }
 :root:not([data-theme="dark"]) .tab-indicator { background: #0D9488; }
 
 /* Light mode KPI stat value: ocean blue */
