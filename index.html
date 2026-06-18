@@ -429,20 +429,12 @@ Do not use markdown blocks, just raw JSON.</textarea>
 
         <div class="card">
           <h2 data-i18n="fin.expenses.title">Expenses</h2>
-          <div class="hint" data-i18n="fin.expenses.hint">Rent, phone, transport — anything that isn't a scanned grocery receipt. Pick how each was paid.</div>
+          <div class="hint" data-i18n="fin.expenses.hint">Rent, phone, transport — any expense. Pick how each was paid.</div>
           <div class="rows" id="expRows"></div>
           <button class="add" id="addExpense" type="button" data-i18n="btn.addExpense">+ Add expense</button>
         </div>
 
         <div class="card">
-          <h2 data-i18n="fin.receipts.title">Grocery receipts</h2>
-          <div class="hint" data-i18n="fin.receipts.hint">Snap a receipt and confirm the line items — nothing is sent anywhere, you type what you see.</div>
-          <div class="rows" id="receiptRows"></div>
-          <div class="snaprow">
-            <button class="btn primary" id="snapReceipt" type="button" data-i18n="btn.snapReceipt">📷 Scan receipt</button>
-            <button class="btn ghost" id="manualReceipt" type="button" data-i18n="btn.manualReceipt">Add manually</button>
-          </div>
-          <input type="file" id="receiptCam" class="cam" accept="image/*" capture="environment">
           <div class="actions">
             <span class="saved" id="savedFin"></span>
           </div>
@@ -553,31 +545,6 @@ Do not use markdown blocks, just raw JSON.</textarea>
   <footer data-i18n="app.footer">Saved in the cloud · no build step · built for daily life in Tokyo</footer>
 </div>
 
-<!-- receipt confirm modal -->
-<div class="overlay" id="receiptModal" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
-    <h2 id="rmTitle" data-i18n="receipt.title">Confirm receipt</h2>
-    <div class="hint" id="rmHint" data-i18n="receipt.hint">Check each line against the photo, fix anything off, then add.</div>
-    <img class="shot" id="rmShot" alt="Receipt photo">
-    <div class="daywin">
-      <div><label class="f" for="rmStore" data-i18n="label.store">Store</label><input id="rmStore" placeholder="e.g. Life, OK, Gyomu"></div>
-      <div><label class="f" data-i18n="label.paidWith2">Paid with</label><div id="rmPaidWrap"></div></div>
-    </div>
-    <div style="margin-top:12px">
-      <div class="draftrow" style="margin-bottom:4px">
-        <label class="f" data-i18n="label.item">Item</label><label class="f" data-i18n="label.qty">Qty</label><label class="f" data-i18n="label.eachYen">¥ each</label><label class="f" data-i18n="label.itemType">Type</label><span></span>
-      </div>
-      <div id="rmRows"></div>
-      <button class="add" id="rmAddRow" type="button" data-i18n="btn.addLine">+ Add line</button>
-    </div>
-    <div class="total-line"><span class="lab" data-i18n="receipt.total">Receipt total 税込</span><span class="amt" id="rmTotal">¥0</span></div>
-    <div class="actions">
-      <button class="btn primary" id="rmConfirm" type="button" data-i18n="btn.addToExpenses">Add to expenses</button>
-      <button class="btn ghost" id="rmCancel" type="button" data-i18n="btn.cancel">Cancel</button>
-    </div>
-  </div>
-</div>
-
 <!-- recipe modal -->
 <div class="overlay" id="recipeModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recipeTitle">
@@ -663,8 +630,6 @@ Do not use markdown blocks, just raw JSON.</textarea>
 <!-- Canvas hidden by CSS now -->
 <canvas id="bg3d" aria-hidden="true"></canvas>
 
-<!-- local API key (git-ignored). Missing/empty = photo-as-reference mode. -->
-<script src="config.local.js"></script>
 <!-- Firebase config (git-ignored). Fill in with your project config. -->
 <script src="firebase-config.js"></script>
 <!-- Firebase SDK (CDN) -->

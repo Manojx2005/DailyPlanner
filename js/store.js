@@ -61,7 +61,6 @@ export const DEFAULT_FIN = {
     { label: "Phone",     amount:  3000, cat: "fixed",    paidBy: "Rakuten Card" },
     { label: "Transport", amount:  8000, cat: "variable", paidBy: "cash" },
   ],
-  receipts: [],
 };
 export const FKEY = "finance:v1";
 

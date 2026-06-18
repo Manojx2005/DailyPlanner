@@ -17,9 +17,8 @@ import { initSync, stopAllListeners, migrateLocalStorage } from "./sync.js?v=1.6
 import { DEFAULT, DEFAULT_SHOP, DEFAULT_FIN, DEFAULT_KITCHEN, KEY, saveData, loadData, setState as storeSetState, setConnection, getViewDate, setViewDate } from "./store.js?v=1.0";
 import { $, esc, cSel, safeUrl, getLocalYMD, formatDateDisplay, cTime, cDate } from "./ui-utils.js?v=1.0";
 import { shop, resetShop, setShopData, saveShop, loadShop, renderShopRows, renderTaxToggle, updateShop, onShopField } from "./ui-shopping.js?v=1.0";
-import { finance, setFinData, draft, saveFin, loadFin, renderIncome, renderCards, renderExpenses,
+import { finance, setFinData, saveFin, loadFin, renderIncome, renderCards, renderExpenses,
          renderFinInputs, updateFinance, onFinField,
-         openReceipt, closeReceipt, renderDraft, draftTotal, onDraftField, confirmReceipt,
          payerOptionsArr } from "./ui-finance.js?v=1.0";
 import { kitchen, setKitchenData, saveKitchen, loadKitchen, recipeById, renderPantry, renderRecipeList, renderMealPlan,
          currentNeeds, renderNeeds, updateAiPrompt, renderKitchen, addCustomMeal,
@@ -195,8 +194,6 @@ function routeField(e){
   const t=e.target,sc=t.dataset.scope;
   if(sc==="shop"){onShopField(e);return true;}
   if(sc==="fin"){onFinField(e);return true;}
-  if(sc==="draft"){onDraftField(e);return true;}
-  if(sc==="draftpaid"){if(draft)draft.paidBy=t.value;return true;}
   if(sc==="goal"){onGoalField(e);return true;}
   return false;
 }
@@ -209,7 +206,6 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",e=>{
   if(routeField(e))return;
-  if(e.target.id==="receiptCam")onPhoto(e);
   if(e.target.id==="timetableCam")onTimetablePhoto(e);
   if(e.target.id==="aiJsonUpload")onAiJsonUpload(e);
 });
@@ -235,7 +231,6 @@ document.addEventListener("click",e=>{
   }
   if(tgt.dataset.delshop!==undefined){shop.items.splice(+tgt.dataset.delshop,1);renderShopRows();updateShop();saveShop();return;}
   if(tgt.dataset.delfin!==undefined){const a=tgt.dataset.delfin;finance[a].splice(+tgt.dataset.i,1);renderFinInputs();updateFinance();saveFin();return;}
-  if(tgt.dataset.deldraft!==undefined){draft.items.splice(+tgt.dataset.deldraft,1);if(!draft.items.length)draft.items.push({name:"",qty:1,price:0,cat:"food"});renderDraft();return;}
   if(tgt.dataset.dowtoggle!==undefined){
     const scope=tgt.dataset.dowscope||"fixed";
     const i=+tgt.dataset.dowtoggle,d=+tgt.dataset.dow,item=state[scope][i];
@@ -402,111 +397,6 @@ function onAiJsonUpload(e){
   };
   reader.readAsText(file);
 }
-
-/* ---------- receipt scanner (OpenRouter Vision — free tier) ---------- */
-function fileToBase64(file){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader();
-    r.onload=()=>resolve(r.result.split(",")[1]);
-    r.onerror=reject;
-    r.readAsDataURL(file);
-  });
-}
-
-async function scanReceipt(file){
-  const key=window.OPENROUTER_API_KEY;
-  if(!key||key==="PASTE_NEW_KEY_HERE")throw new Error("No OpenRouter API key — add window.OPENROUTER_API_KEY to config.local.js");
-
-  const base64=await fileToBase64(file);
-  const mime=file.type||"image/jpeg";
-
-  const resp=await fetch("https://openrouter.ai/api/v1/chat/completions",{
-    method:"POST",
-    headers:{
-      "Authorization":`Bearer ${key}`,
-      "Content-Type":"application/json"
-    },
-    body:JSON.stringify({
-      model:"google/gemma-4-31b-it:free",
-      messages:[{
-        role:"user",
-        content:[
-          {type:"image_url",image_url:{url:`data:${mime};base64,${base64}`}},
-          {type:"text",text:`You are a receipt scanner. Extract all purchased items from this receipt image.
-Return ONLY a JSON object with no markdown formatting:
-{"store":"store or restaurant name (empty string if unclear)","items":[{"name":"item name in original language","price":0}]}
-Rules:
-- price must be a whole number in yen (integer, no ¥ sign, no decimals)
-- Include ONLY individual purchased items
-- Exclude: totals, subtotals, taxes, service charges, discounts, change, cash tendered, points, coupons
-- Keep Japanese item names in Japanese`}
-        ]
-      }],
-      temperature:0
-    })
-  });
-
-  if(!resp.ok){
-    const err=await resp.json().catch(()=>({}));
-    throw new Error(`OpenRouter ${resp.status}: ${err?.error?.message||resp.statusText}`);
-  }
-
-  const data=await resp.json();
-  const raw=(data.choices?.[0]?.message?.content||"").trim();
-  const json=raw.replace(/^```(?:json)?\s*/,"").replace(/\s*```$/,"");
-  const parsed=JSON.parse(json);
-
-  const store=String(parsed.store||"").trim();
-  const items=(parsed.items||[])
-    .filter(it=>it.name&&Number(it.price)>=10)
-    .map(it=>({name:String(it.name).trim(),qty:1,price:Math.round(Number(it.price)),cat:"food"}));
-
-  return{store,items};
-}
-
-async function onPhoto(e){
-  const file=e.target.files&&e.target.files[0];if(!file||!draft)return;
-  if(draft.photoURL)URL.revokeObjectURL(draft.photoURL);
-  draft.photoURL=URL.createObjectURL(file);
-  const shot=$("rmShot");shot.src=draft.photoURL;shot.classList.add("has");
-  e.target.value="";
-
-  $("rmRows").innerHTML=`<div class="scan-loading">⏳ Starting OCR engine…</div>`;
-  $("rmTotal").textContent=yen(0);
-  const hint=$("rmHint");
-  if(hint)hint.textContent="";
-
-  let result=null,scanErr=null;
-  try{
-    result=await scanReceipt(file);
-  }catch(err){
-    console.error("Receipt scan failed:",err);
-    scanErr=err.message||"Scan failed";
-  }
-
-  const items=result?.items;
-  const store=result?.store||"";
-
-  // Populate store field if it's currently empty and we detected one
-  if(store&&!$("rmStore").value.trim()){
-    $("rmStore").value=store;
-    draft.store=store;
-  }
-
-  if(items&&items.length){
-    draft.items=items.map(it=>({
-      name:String(it.name||""),
-      qty:Math.max(1,Math.round(Number(it.qty)||1)),
-      price:Number(it.price)||0,
-      cat:it.cat==="other"?"other":"food"
-    }));
-    if(hint)hint.textContent="Check each line against the photo, fix anything off, then add.";
-  }else{
-    draft.items=[{name:"",qty:1,price:0,cat:"food"}];
-    if(hint)hint.textContent=scanErr||"Couldn't auto-read this receipt — fill in items below.";
-  }
-  renderDraft();
-}
 $("addFixed").onclick=()=>{state.fixed.push({label:"",start:"13:00",end:"14:00"});renderFixed(state);save();};
 $("addMeal").onclick=()=>{state.meals.push({label:"Snack",time:"15:30",dur:15});renderMeals(state);save();};
 $("addTask").onclick=()=>{state.tasks.push({label:"",dur:30,category:"study",priority:"med",deadlineDays:3});renderTasks(state);save();};
@@ -572,11 +462,6 @@ $("resetShop").onclick=async()=>{resetShop();renderShopRows();renderTaxToggle();
 $("addIncome").onclick=()=>{finance.income.push({label:"",amount:0});renderIncome();updateFinance();saveFin();};
 $("addCard").onclick=()=>{finance.cards.push({name:"",limit:100000});renderCards();renderExpenses();updateFinance();saveFin();};
 $("addExpense").onclick=()=>{finance.expenses.push({label:"",amount:0,cat:"variable",paidBy:"cash"});renderExpenses();updateFinance();saveFin();};
-$("snapReceipt").onclick=()=>openReceipt(true);
-$("manualReceipt").onclick=()=>openReceipt(false);
-$("rmAddRow").onclick=()=>{draft.items.push({name:"",qty:1,price:0,cat:"food"});renderDraft();};
-$("rmConfirm").onclick=confirmReceipt;
-$("rmCancel").onclick=closeReceipt;
 
 /* ---------- theme toggle ---------- */
 const MOON_SVG=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;

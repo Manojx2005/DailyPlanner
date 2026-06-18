@@ -23,7 +23,6 @@ const APP_SHELL = [
   "./js/sw-register.js?v=1.7",
   "./js/sync.js?v=1.6",
   "./js/week.js?v=1.7",
-  "./config.local.js",
   "./firebase-config.js",
   "./manifest.json",
   "./icon.svg",
